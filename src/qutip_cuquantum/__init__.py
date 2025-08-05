@@ -22,6 +22,7 @@ except ImportError as err:
         "https://docs.nvidia.com/cuda/cuquantum/latest/getting-started/index.html",
     ])) from err
 
+
 import qutip
 from qutip.core.options import QutipOptions
 from .operator import CuOperator
@@ -91,6 +92,6 @@ def set_as_default(ctx):
 
 
 # Cleaning the namespace
-del Result
-del QutipOptions
-del qutip
+#del Result
+#del QutipOptions
+#del qutip

@@ -1,8 +1,9 @@
-import qutip.solver.integrator import qode
+import qutip
+import qutip.solver.integrator as qode
 from qutip.solver.mcsolve import MCSolver
 from qutip.solver.mesolve import MESolver
 from qutip.solver.sesolve import SESolver
-from qutip.solver.results import Result as qt_Result
+from qutip.solver.result import Result as qt_Result
 
 from .state import CuState
 from .qobjevo import CuQobjEvo

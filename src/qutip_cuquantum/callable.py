@@ -7,7 +7,7 @@ from qutip.core.cy._element import _BaseElement, _FuncElement, _MapElement, _Pro
 from qutip.core.data import Dia
 from qutip.core import coefficient, Qobj
 
-from .cudense import CuOperator
+from . import CuOperator
 
 
 def wrap_coeff(coeff):

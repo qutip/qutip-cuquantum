@@ -9,7 +9,7 @@ from qutip.settings import settings
 from qutip import Qobj
 
 from .state import zeros_like_cuState, CuState
-from .cudense import CuOperator
+from .operator import CuOperator
 from .callable import wrap_coeff, wrap_funcelement
 
 

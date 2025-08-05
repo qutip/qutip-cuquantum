@@ -265,3 +265,7 @@ def column_stack(matrix):
 @_data.column_unstack.register(CuState)
 def column_unstack(matrix, rows):
     return CuState(matrix.base, shape=(matrix.shape[0] / rows, rows))
+
+
+def zeros_like_cuState(state):
+    return CuState(state.base.clone(cp.zeros_like(state.base.storage, order="F")))

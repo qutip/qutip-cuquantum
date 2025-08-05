@@ -101,7 +101,7 @@ def get_ext_modules(options):
     print(pyx_file)
     print("*********************************************************************************")
     ext = setuptools.Extension(
-        name="qutip_cupy.cudense.qobjevo",
+        name="qutip_cuquantum.qobjevo",
         sources=[pyx_file],
         include_dirs=include_dirs,
         language="c++",
