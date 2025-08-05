@@ -5,10 +5,8 @@ import random
 cudense = pytest.importorskip("cuquantum.densitymat")
 
 import qutip
-import qutip_cupy
-from qutip_cupy.cudense import CuOperator
-from qutip_cupy.cudense.cudense import ProdTerm, Term
-from qutip_cupy.cudense.utils import Transform
+from qutip_cuquantum.operator import CuOperator, ProdTerm, Term
+from qutip_cuquantum.utils import Transform
 
 import qutip.core.data as _data
 import qutip.tests.core.data.test_mathematics as test_tools
@@ -26,13 +24,17 @@ def _rand_transform(gen):
 
 def _rand_elementary_oper(size, gen):
     if gen.uniform() < 0.5:
+        # 50% Dia format
         mat = random_diag((size, size), gen.uniform()*0.4, False, gen)
-    elif gen.uniform() < 0.8:
+    elif gen.uniform() < 0.6:
+        # 30% Dense format
         mat = random_dense((size, size), gen.uniform() > 0.5, gen)
     else:
+        # 20% CSR format (not fully supported, converted to dense eventually)
         mat = random_csr((size, size), gen.uniform()*0.4, False, gen)
 
     if gen.uniform() < 0.5:
+        # Use cuDensity format instead of qutip.
         array_type = np if gen.uniform() < 0.5 else cp
         if isinstance(mat, _data.Dia):
             dia_matrix = mat.as_scipy()

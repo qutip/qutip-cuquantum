@@ -380,8 +380,7 @@ class CuOperator(Data):
                     mat = mat.get()
 
                 if len(mat.shape) > 2:
-                    raise RuntimeError("_oper_to_array no up to date")
-                    # mat = mat.reshape(oper.shape + (-1,))[:, :, 0]
+                    raise NotImplementedError("to_array parts must be 2d")
 
                 idxs = list(range(len(hilbert)))
 

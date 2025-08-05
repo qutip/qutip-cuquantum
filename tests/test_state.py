@@ -7,10 +7,8 @@ from itertools import product
 cudense = pytest.importorskip("cuquantum.densitymat")
 
 import qutip
-import qutip_cupy
-from qutip_cupy.cudense import CuState
-from qutip_cupy.cudense.state import (
-    iadd_cuState, add_cuState, mul_cuState, imul_cuState,
+from qutip_cuquantum.state import (
+    CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState
     frobenius_cuState, kron_cuState, trace_cuState, inner_cuState
 )
 
@@ -23,9 +21,9 @@ def random_pure_custate(hilbert):
     """Generate a random `CuPyDense` matrix with the given shape."""
     N = abs(np.prod(hilbert))
     out = (
-        cp.random.rand(N, 1) + 1j * cp.random.rand(N, 1)
+        np.random.rand(N, 1) + 1j * np.random.rand(N, 1)
     ).astype(cp.complex128)
-    out = qutip_cupy.CuPyDense._raw_cupy_constructor(out)
+    out = qutip.core.data.Dense(out)
     return CuState(out, hilbert, copy=False)
 
 
@@ -33,9 +31,9 @@ def random_mixed_custate(hilbert):
     """Generate a random `CuPyDense` matrix with the given shape."""
     N = abs(np.prod(hilbert))
     out = (
-        cp.random.rand(N, N) + 1j * cp.random.rand(N, N)
+        np.random.rand(N, N) + 1j * np.random.rand(N, N)
     ).astype(cp.complex128)
-    out = qutip_cupy.CuPyDense._raw_cupy_constructor(out)
+    out = qutip.core.data.Dense(out)
     return CuState(out, hilbert, copy=False)
 
 
