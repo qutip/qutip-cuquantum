@@ -684,14 +684,14 @@ def dimensions_CuOperator(matrix, hilbert, order):
 
     new = CuOperator(shape=matrix.shape)
     permutation = np.argsort(order)
-    new.hilbert_dims = tuple(matrix.hilbert_dims[i] for i in permutation)
+    new.hilbert_dims = tuple(matrix.hilbert_dims[i] for i in order)
 
     for term in matrix.terms:
         copy_term = Term([], factor=term.factor)
         for pterm in term.prod_terms:
             copy_term.prod_terms.append(ProdTerm(
                 pterm.operator.copy(),
-                tuple(order[mode] for mode in pterm.hilbert),
+                tuple(int(permutation[mode]) for mode in pterm.hilbert),
                 pterm.transform,
             ))
         new.terms.append(copy_term)

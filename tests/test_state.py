@@ -17,6 +17,9 @@ import qutip.tests.core.data.test_mathematics as test_tools
 import qutip.tests.core.data.test_norm as test_norm
 
 
+qutip.settings.cuDensity["ctx"] = cudense.WorkStream()
+
+
 def random_pure_custate(hilbert):
     """Generate a random `CuPyDense` matrix with the given shape."""
     N = abs(np.prod(hilbert))

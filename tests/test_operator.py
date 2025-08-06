@@ -133,10 +133,10 @@ _imcompatible_hilbert = [
 
 @pytest.mark.parametrize("shape", [(1, 1), (100, 100)])
 def test_zeros(shape):
-    oper = _data.zeros[CuOperator](shape)
+    oper = _data.zeros[CuOperator](*shape)
     assert np.all(oper.to_array() == 0.)
     assert oper.shape == shape
-    assert oper.to_array.shape == shape
+    assert oper.to_array().shape == shape
     assert len(oper.terms) == 0
 
 
@@ -146,9 +146,9 @@ def test_id(N):
     assert np.all(oper.to_array() == np.eye(N))
     shape = (N, N)
     assert oper.shape == shape
-    assert oper.to_array.shape == shape
+    assert oper.to_array().shape == shape
     assert len(oper.terms) == 1
-    assert len(oper.terms.prod_terms) == 0
+    assert len(oper.terms[0].prod_terms) == 0
 
 
 @pytest.mark.parametrize(["N_diag", "size"], [
@@ -179,10 +179,17 @@ def test_permute():
     I = qutip.qeye(2, dtype=CuOperator)
 
     oper = X & Y & Z & I
-    new = _data.permute.dimensions(oper.data, [1, 3, 0, 2])
+    new = _data.permute.dimensions(oper.data, [2, 2, 2, 2], [1, 3, 0, 2])
     target = Y & I & X & Z
 
     assert np.all(new.to_array() == target.full())
+
+    A = qutip.fock_dm(3, 0).to(CuOperator)
+    B = qutip.fock_dm(5, 4).to(CuOperator)
+    C = qutip.fock_dm(4, 2).to(CuOperator)
+    rho = qutip.tensor(A, B, C)
+    rho2 = rho.permute([2, 0, 1])
+    assert np.all(rho2.full() == qutip.tensor(C, A, B).full())
 
 
 _qeye = lambda N: lambda : qutip.qeye(N)
