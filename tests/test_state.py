@@ -8,7 +8,7 @@ cudense = pytest.importorskip("cuquantum.densitymat")
 
 import qutip
 from qutip_cuquantum.state import (
-    CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState
+    CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState,
     frobenius_cuState, kron_cuState, trace_cuState, inner_cuState
 )
 
@@ -54,33 +54,44 @@ test_tools._RANDOM = {
 }
 
 _unary_pure = [
-    (2, True),
-    (-6, True),
-    (-2, 2, 2, True),
+    (pytest.param((2, True), id="simple ket"),),
+    (pytest.param((-6, True), id="simple ket, weak hilbert"),),
+    (pytest.param((-2, 2, 2, True), id="complex ket"),),
 ]
 
 _unary_mixed = [
-    (3, False),
-    (2, 3, False),
-    (2, 3, -4, False),
+    (pytest.param((3, False), id="scalar dm"),),
+    (pytest.param((2, 3, False), id="2 hilbert dm"),),
+    (pytest.param((2, 3, -4, False), id="complex dm"),),
 ]
 
 
 _compatible_hilbert = [
-    ((2, True), (2, True)),
-    ((2, 3, False), (2, 3, False)),
-    ((2, 3, True), (-6, True)),
-    ((2, 3, -4, False), (-6, 2, 2, False)),
-    ((2, -4, True), (-4, 2, True)),
+    (pytest.param((2, True), id="simple ket"), pytest.param((2, True), id="simple ket"),),
+    (pytest.param((2, 3, True), id="2 hilbert ket"), pytest.param((-6, True), id="weak ket"),),
+    (pytest.param((2, -4, 3, True), id="complex ket"), pytest.param((-4, -6, True), id="complex ket"),),
+    (pytest.param((2, 3, False), id="2 hilbert dm"), pytest.param((2, 3, False), id="2 hilbert dm"),),
+    (pytest.param((2, 3, 2, False), id="3 hilbert dm"), pytest.param((2, -6, False), id="2 weak hilbert dm"),),
+    (pytest.param((2, 3, -4, False), id="complex dm"), pytest.param((2, -6, -2, False), id="complex dm"),),
 ]
 
 
 _imcompatible_hilbert = [
-    ((2, True), (2, False)),
-    ((2, True), (3, True)),
-    ((2, 3, True), (-6, False)),
-    ((2, 3, False), (3, 2, False)),
-    ((-2, -4, True), (4, -2, True)),
+    (pytest.param((2, True), id="simple ket"), pytest.param((2, False), id="simple dm"),),
+    (pytest.param((2, True), id="2 ket"), pytest.param((3, True), id="3 ket"),),
+    (pytest.param((3, 2, True), id="3, 2 ket"), pytest.param((2, 3, True), id="2, 3 ket"),),
+    (pytest.param((2, 3, False), id="3, 2 dm"), pytest.param((2, 3, False), id="2, 3 dm"),),
+    (pytest.param((-2, -4, False), id="-2, -4 dm"), pytest.param((4 ,-2, False), id="4, -2 dm"),),
+]
+
+_kron_hilbert = [
+    (pytest.param((2, True), id="simple ket"), pytest.param((3, True), id="simple ket"),),
+    (pytest.param((2, 3, True), id="2 hilbert ket"), pytest.param((-2, True), id="weak ket"),),
+    (pytest.param((2, -4, 3, True), id="complex ket"), pytest.param((-4, -6, True), id="complex ket"),),
+    (pytest.param((2, False), id="simple dm"), pytest.param((2, 3, False), id="2 hilbert dm"),),
+    (pytest.param((2, 3, 2, False), id="3 hilbert dm"), pytest.param((2, -6, False), id="2 weak hilbert dm"),),
+    (pytest.param((2, 3, -4, False), id="complex dm"), pytest.param((2, -6, -2, False), id="complex dm"),),
+
 ]
 
 
@@ -89,11 +100,10 @@ class TestKron(test_tools.TestKron):
         pytest.param(kron_cuState, CuState, CuState, CuState),
     ]
 
-    shapes = (
-        list(product(_unary_pure, repeat=2))
-        + list(product(_unary_mixed, repeat=2))
-    )
-    bad_shapes = []
+    shapes = _kron_hilbert
+    bad_shapes = [
+        (pytest.param((2, True), id="simple ket"), pytest.param((2, False), id="simple dm"),),
+    ]
 
 
 class TestTrace(test_tools.TestTrace):
@@ -139,5 +149,5 @@ class TestInner(test_tools.TestInner):
         pytest.param(inner_cuState, CuState, CuState, complex),
     ]
 
-    shapes = _unary_pure
+    shapes = [(hilbert[0], hilbert[0]) for hilbert in _unary_pure]
     bad_shapes = []

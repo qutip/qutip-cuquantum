@@ -110,7 +110,6 @@ _unary_hilbert = [
     (pytest.param((2, 3), id="double"),),
     (pytest.param((-2, -4), id="double_weak"),),
     (pytest.param((2, 3, -4), id="complex"),),
-
 ]
 
 
