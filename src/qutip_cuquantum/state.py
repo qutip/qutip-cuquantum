@@ -16,7 +16,9 @@ except ImportError:
 class CuState(Data):
     def __init__(self, arg, hilbert_dims=None, shape=None, copy=True):
         ctx = settings.cuDensity["ctx"]
-
+        if hilbert_dims is not None and any(d < 0 for d in hilbert_dims):
+            raise ValueError("weak hilbert dims not supported for CuState")
+        
         if isinstance(arg, (DensePureState, DenseMixedState)):
             if shape is not None:
                 pass
@@ -121,9 +123,14 @@ class CuState(Data):
 
     def to_cupy(self, as_tensor=False):
         # TODO: How to implement for mpi?
-        if self.base.local_info[0][:-1] != self.base.hilbert_space_dims:
+        if type(self.base) is DenseMixedState:
+            tensor_shape = self.base.hilbert_space_dims * 2
+        else:
+            tensor_shape = self.base.hilbert_space_dims
+        if self.base.local_info[0][:-1] != tensor_shape:
             raise NotImplementedError(
                 "Not Implemented for MPI distributed array."
+                f"{self.base.local_info[0][:-1]} vs {self.base.hilbert_space_dims}"
             )
         tensor = self.base.view()[..., 0]
         if not as_tensor:
@@ -194,7 +201,7 @@ def trace_cuState(mat):
     if mat.shape[0] != mat.shape[1]:
         raise ValueError(...)
 
-    return mat.base.trace()
+    return complex(mat.base.trace())
 
 
 @_data.inner.register(CuState)
@@ -203,13 +210,13 @@ def inner_cuState(left, right, scalar_is_ket=False):
         inner = left.base.storage[0] * right.base.storage[0]
     else:
         inner = left.base.inner_product(right.base)
-    return inner
+    return complex(inner)
 
 
 @_data.kron.register(CuState)
 def kron_cuState(left, right):
     if type(left.base) is not type(right.base):
-        raise TypeError(...)
+        raise ValueError(...)
     state = type(left.base)(
         settings.cuDensity["ctx"],
         left.base.hilbert_space_dims + right.base.hilbert_space_dims,
@@ -229,6 +236,11 @@ def mul_cuState(mat, val):
 
 @_data.add.register(CuState)
 def add_cuState(left, right, scale=1.):
+    if left.base.hilbert_space_dims != right.base.hilbert_space_dims:
+        raise ValueError(
+            f"Incompatible hilbert space: {left.base.hilbert_space_dims} "
+            f"and {right.base.hilbert_space_dims}."
+        )
     out = left.copy()
     out.base.inplace_accumulate(right.base, scale)
     return out
@@ -248,7 +260,7 @@ def iadd_cuState(left, right, scale=1.):
 
 @_data.norm.frobenius.register(CuState)
 def frobenius_cuState(mat):
-    return mat.base.norm()
+    return float(mat.base.norm())**0.5
 
 
 @_data.reshape.register(CuState)

@@ -1,8 +1,8 @@
 """QuTiP family package entry point."""
 
-from . import __version__
+from .version import version
 
 
 def version():
     """Return information to include in qutip.about()."""
-    return "qutip-cuquantum", __version__
+    return "qutip-cuquantum", version

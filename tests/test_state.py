@@ -58,24 +58,42 @@ test_tools._RANDOM = {
 
 _unary_pure = [
     (pytest.param((2, True), id="simple ket"),),
-    (pytest.param((-6, True), id="simple ket, weak hilbert"),),
-    (pytest.param((-2, 2, 2, True), id="complex ket"),),
+    (pytest.param((6, 6, True), id="2 hilbert ket"),),
+    (pytest.param((2, 2, 2, True), id="complex ket"),),
 ]
 
 _unary_mixed = [
     (pytest.param((3, False), id="scalar dm"),),
     (pytest.param((2, 3, False), id="2 hilbert dm"),),
-    (pytest.param((2, 3, -4, False), id="complex dm"),),
+    (pytest.param((2, 3, 4, False), id="complex dm"),),
 ]
 
 
 _compatible_hilbert = [
-    (pytest.param((2, True), id="simple ket"), pytest.param((2, True), id="simple ket"),),
-    (pytest.param((2, 3, True), id="2 hilbert ket"), pytest.param((-6, True), id="weak ket"),),
-    (pytest.param((2, -4, 3, True), id="complex ket"), pytest.param((-4, -6, True), id="complex ket"),),
-    (pytest.param((2, 3, False), id="2 hilbert dm"), pytest.param((2, 3, False), id="2 hilbert dm"),),
-    (pytest.param((2, 3, 2, False), id="3 hilbert dm"), pytest.param((2, -6, False), id="2 weak hilbert dm"),),
-    (pytest.param((2, 3, -4, False), id="complex dm"), pytest.param((2, -6, -2, False), id="complex dm"),),
+    (
+        pytest.param((2, True), id="simple ket"), 
+         pytest.param((2, True), id="simple ket"),
+    ),
+    (
+        pytest.param((2, 3, True), id="2 hilbert ket"), 
+        pytest.param((2, 3, True), id="weak ket"),
+    ),
+    (
+        pytest.param((2, 2, 2, 3, True), id="complex ket"), 
+        pytest.param((2, 2, 2, 3, True), id="complex ket"),
+    ),
+    (
+        pytest.param((2, 3, False), id="2 hilbert dm"),
+        pytest.param((2, 3, False), id="2 hilbert dm"),
+    ),
+    (
+        pytest.param((2, 3, 2, False), id="3 hilbert dm"),
+        pytest.param((2, 3, 2, False), id="2 weak hilbert dm"),
+    ),
+    (
+        pytest.param((2, 3, 4, False), id="complex dm"),
+        pytest.param((2, 3, 4, False), id="complex dm"),
+    ),
 ]
 
 
@@ -83,18 +101,30 @@ _imcompatible_hilbert = [
     (pytest.param((2, True), id="simple ket"), pytest.param((2, False), id="simple dm"),),
     (pytest.param((2, True), id="2 ket"), pytest.param((3, True), id="3 ket"),),
     (pytest.param((3, 2, True), id="3, 2 ket"), pytest.param((2, 3, True), id="2, 3 ket"),),
-    (pytest.param((2, 3, False), id="3, 2 dm"), pytest.param((2, 3, False), id="2, 3 dm"),),
-    (pytest.param((-2, -4, False), id="-2, -4 dm"), pytest.param((4 ,-2, False), id="4, -2 dm"),),
+    (pytest.param((3, 2, False), id="3, 2 dm"), pytest.param((2, 3, False), id="2, 3 dm"),),
+    (pytest.param((2, 4, False), id="2, 4 dm"), pytest.param((4 ,2, False), id="4, 2 dm"),),
 ]
 
 _kron_hilbert = [
-    (pytest.param((2, True), id="simple ket"), pytest.param((3, True), id="simple ket"),),
-    (pytest.param((2, 3, True), id="2 hilbert ket"), pytest.param((-2, True), id="weak ket"),),
-    (pytest.param((2, -4, 3, True), id="complex ket"), pytest.param((-4, -6, True), id="complex ket"),),
-    (pytest.param((2, False), id="simple dm"), pytest.param((2, 3, False), id="2 hilbert dm"),),
-    (pytest.param((2, 3, 2, False), id="3 hilbert dm"), pytest.param((2, -6, False), id="2 weak hilbert dm"),),
-    (pytest.param((2, 3, -4, False), id="complex dm"), pytest.param((2, -6, -2, False), id="complex dm"),),
-
+    (
+        pytest.param((2, True), id="simple ket"),
+        pytest.param((3, True), id="simple ket"),),
+    (
+        pytest.param((2, 3, True), id="2 hilbert ket"), 
+        pytest.param((2, True), id="simple ket"),),
+    (
+        pytest.param((2, 4, 3, True), id="complex ket"), 
+        pytest.param((4, 6, True), id="complex ket"),),
+    (
+        pytest.param((2, False), id="simple dm"), 
+        pytest.param((2, 3, False), id="2 hilbert dm"),),
+    (
+        pytest.param((2, 3, 2, False), id="3 hilbert dm"), 
+        pytest.param((2, 6, False), id="2 hilbert dm"),),
+    (
+        pytest.param((2, 3, 4, False), id="complex dm"), 
+        pytest.param((2, 6, 2, False), id="complex dm"),
+    ),
 ]
 
 
@@ -111,7 +141,7 @@ class TestKron(test_tools.TestKron):
 
 class TestTrace(test_tools.TestTrace):
     specialisations = [
-        pytest.param(trace_cuState, CuState, CuState, CuState),
+        pytest.param(trace_cuState, CuState, CuState, complex),
     ]
 
     shapes = _unary_mixed
@@ -140,7 +170,7 @@ class TestMul(test_tools.TestMul):
 
 class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
     specialisations = [
-        pytest.param(frobenius_cuState, CuState, numbers.Number),
+        pytest.param(frobenius_cuState, CuState, float),
     ]
 
     shapes = _unary_pure + _unary_mixed
