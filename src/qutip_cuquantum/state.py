@@ -263,6 +263,18 @@ def frobenius_cuState(mat):
     return float(mat.base.norm())**0.5
 
 
+@_data.ode.wrmn_error.register(CuState)
+def wrmn_error_cuState(diff, state, atol, rtol):
+    if diff.base.hilbert_space_dims != state.base.hilbert_space_dims:
+        raise ValueError(
+            f"Incompatible hilbert space: {diff.base.hilbert_space_dims} "
+            f"and {state.base.hilbert_space_dims}."
+        )
+    diff.base.storage[:] = cp.abs(diff.base.storage)
+    diff.base.storage[:] = diff.base.storage / (atol + rtol * cp.abs(state.base.storage))
+    return float(diff.base.norm() / (diff.shape[0] * diff.shape[1]))**0.5
+
+
 @_data.reshape.register(CuState)
 def reshape_stack(matrix):
     raise NotImplementedError(...)
