@@ -213,22 +213,6 @@ def inner_cuState(left, right, scalar_is_ket=False):
     return complex(inner)
 
 
-@_data.kron.register(CuState)
-def kron_cuState(left, right):
-    if type(left.base) is not type(right.base):
-        raise ValueError(...)
-    state = type(left.base)(
-        settings.cuDensity["ctx"],
-        left.base.hilbert_space_dims + right.base.hilbert_space_dims,
-        1,
-        "complex128"
-    )
-    # right <--> left reversed since F ordered.
-    kron = cp.kron(right.to_cupy(), left.to_cupy()).ravel(order="F")
-    state.attach_storage(kron.copy())
-    return CuState(state, copy=False)
-
-
 @_data.mul.register(CuState)
 def mul_cuState(mat, val):
     return mat * val

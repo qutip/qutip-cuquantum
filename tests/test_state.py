@@ -9,8 +9,7 @@ cudense = pytest.importorskip("cuquantum.densitymat")
 import qutip
 from qutip_cuquantum.state import (
     CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState,
-    frobenius_cuState, kron_cuState, trace_cuState, inner_cuState,
-    wrmn_error_cuState
+    frobenius_cuState, trace_cuState, inner_cuState, wrmn_error_cuState
 )
 
 import qutip.core.data as _data
@@ -127,17 +126,6 @@ _kron_hilbert = [
         pytest.param((2, 6, 2, False), id="complex dm"),
     ),
 ]
-
-
-class TestKron(test_tools.TestKron):
-    specialisations = [
-        pytest.param(kron_cuState, CuState, CuState, CuState),
-    ]
-
-    shapes = _kron_hilbert
-    bad_shapes = [
-        (pytest.param((2, True), id="simple ket"), pytest.param((2, False), id="simple dm"),),
-    ]
 
 
 class TestTrace(test_tools.TestTrace):
