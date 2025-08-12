@@ -92,6 +92,6 @@ def set_as_default(ctx):
 
 
 # Cleaning the namespace
-#del Result
-#del QutipOptions
-#del qutip
+del Result
+del QutipOptions
+del qutip

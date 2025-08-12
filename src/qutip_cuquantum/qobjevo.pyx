@@ -138,6 +138,7 @@ import qutip.core.data as _data
 
 @_data.matmul.register(CuOperator, CuState, CuState)
 def matmul_cuoperator_custate_custate(left, right, scale=1., out=None):
+    # TODO: Add a test
     if left.shape[1] == right.shape[0]:
         dual = False
     elif left.shape[1] == right.shape[0] * right.shape[1]:
