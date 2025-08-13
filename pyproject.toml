@@ -1,0 +1,37 @@
+[build-system]
+requires = [
+    "setuptools>=36.6",
+    "packaging",
+    "wheel",
+    "Cython",
+    "qutip>=5.0.0", # TODO: 5.2.1 we released
+    "numpy",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qutip-cuquantum"
+version = "0.1.0"
+authors = [
+  { name="Eric Giguère", email="qutip-admin@googlegroups.com"},
+]
+description = "cuQuantum's cuDensityMat backend for QuTiP"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: Unix",
+]
+
+# URLs for your project
+[project.urls]
+Homepage = "https://github.com/qutip/qutip-cuquantum"
+"Bug Tracker" = "https://github.com/your-username/my-awesome-project/issues"
+
+
+[tool.pytest.ini_options]
+addopts = "-Werror --strict-config --strict-markers -W ignore::DeprecationWarning"
+testpaths = [
+    "tests",
+]
