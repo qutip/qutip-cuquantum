@@ -134,3 +134,22 @@ def test_mesolve_H_func():
     assert len(result.expect) == 1
     assert len(result.expect[0]) == 11
 
+
+def test_mcsolve():
+    H = (
+        (qutip.sigmaz() & qutip.qeye(3)) + 
+        (qutip.qeye(2) & qutip.num(3)) +
+        (qutip.sigmam() & qutip.create(3)) +
+        (qutip.sigmap() & qutip.destroy(3))
+    )
+    
+    result = qutip.mcsolve(
+        H, qutip.basis([2, 3]), np.linspace(0, 1, 11), 
+        c_ops=[qutip.qeye(2) & qutip.num(3)], 
+        e_ops=[qutip.destroy(2) & qutip.destroy(3)],
+        ntraj = 10
+    )
+    assert len(result.expect) == 1
+    assert len(result.expect[0]) == 11
+
+
