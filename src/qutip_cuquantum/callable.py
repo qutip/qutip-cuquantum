@@ -3,11 +3,17 @@ from cuquantum.densitymat import CPUCallback, DenseOperator
 
 from qutip.core.tensor import _reverse_partial_tensor, tensor
 from qutip.core.superoperator import spre, spost
-from qutip.core.cy._element import _BaseElement, _FuncElement, _MapElement, _ProdElement, _EvoElement
+from qutip.core.cy._element import _BaseElement, _FuncElement, _MapElement, _ProdElement, _EvoElement, _ConstantElement
 from qutip.core.data import Dia
 from qutip.core import coefficient, Qobj
 
 from . import CuOperator
+
+
+def _hilbert_from_dims(dims):
+    if isinstance(dims[0], list):
+        return dims[0]
+    return dims
 
 
 def wrap_coeff(coeff):
@@ -59,7 +65,7 @@ def wrap_funcelement(element, args, dual, hilbert_dims, anti=False):
 
     if isinstance(element, _FuncElement):
         oper, num_mode = _wrap_callable(element.qobj)
-        out = tensor_product((oper, tuple(range(num_modes)) ), dtype="complex128")
+        out = tensor_product((oper, tuple(range(num_mode)) ), dtype="complex128")
 
     elif isinstance(element, _MapElement):
         oper, num_mode = _wrap_callable(element._base.qobj)
@@ -68,33 +74,43 @@ def wrap_funcelement(element, args, dual, hilbert_dims, anti=False):
             as_qobj = transform(as_qobj)
         if as_qobj.dtype is not CuOperator:
             oper, num_mode = _wrap_callable(element.qobj)
-            out = tensor_product((oper, tuple(range(num_modes)) ), dtype="complex128")
+            out = tensor_product((oper, tuple(range(num_mode)) ), dtype="complex128")
         else:
             coeff = conj(element._coeff) if anti else element._coeff
             out = as_qobj.data.to_OperatorTerm(dual, hilbert_dims=hilbert_dims) * coeff
 
     elif isinstance(element, _ProdElement):
-        left = CuOperator(wrap_funcelement(element.left, None, dual, hilbert_dims, self._conj != anti))
-        right = CuOperator(wrap_funcelement(element.left, None, dual, hilbert_dims, self._conj != anti))
-        as_qobj = Qobj(left @ right)
+        dims_left = element._left.qobj(0).dims
+        hilbert_left = _hilbert_from_dims(dims_left)
+        left = CuOperator(
+            wrap_funcelement(element._left, None, dual, hilbert_left, element._conj != anti),
+            hilbert_dims=hilbert_left,
+        )
+        dims_right = element._right.qobj(0).dims
+        hilbert_right = _hilbert_from_dims(dims_right)
+        right = CuOperator(
+            wrap_funcelement(element._right, None, dual, hilbert_right, element._conj != anti),
+            hilbert_dims=hilbert_right,
+        )
+        as_qobj = Qobj(left @ right, [dims_left[0], dims_right[1]])
         for transform in element._transform:
             as_qobj = transform(as_qobj)
         
         if as_qobj.dtype is not CuOperator:
             oper, num_mode = _wrap_callable(element.qobj)
             coeff = make_CPUcall( coefficient(element.coeff).conj() ) if anti else make_CPUcall(element.coeff)
-            out = tensor_product((oper, tuple(range(num_modes)) ), dtype="complex128") * coeff
+            out = tensor_product((oper, tuple(range(num_mode)) ), dtype="complex128") * coeff
         else:
             out = as_qobj.data.to_OperatorTerm(dual, hilbert_dims=hilbert_dims)
 
     elif isinstance(element, _EvoElement):
         qobj = element._qobj
         coeff = make_CPUcall(element._coefficient.conj()) if anti else make_CPUcall(element._coefficient)
-        out = qobj.data.to_OperatorTerm(dual, hilbert_dims=self.hilbert_space_dims) * coeff
+        out = qobj.data.to_OperatorTerm(dual, hilbert_dims=hilbert_dims) * coeff
 
     elif isinstance(element, _ConstantElement):
         qobj = element._qobj
-        out = qobj.data.to_OperatorTerm(dual, hilbert_dims=self.hilbert_space_dims)
+        out = qobj.data.to_OperatorTerm(dual, hilbert_dims=hilbert_dims)
 
     else:
         raise NotImplementedError(type(element))

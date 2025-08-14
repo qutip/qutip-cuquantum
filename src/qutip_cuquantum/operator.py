@@ -13,6 +13,7 @@ import cupy as cp
 
 from qutip.core.data import Data
 from qutip.core import data as _data
+from qutip.settings import settings
 
 from .utils import (
     Transform, conj_transform, trans_transform, adjoint_transform,
@@ -34,19 +35,27 @@ def _transpose_cu_operator(oper):
         )
     elif isinstance(oper, DenseOperator):
         N = oper.num_modes
+        batch_dims_oper = len(oper.data.shape) % 2
+        batch_dims_callback = len(oper.callback.callback(0, None).shape) % 2
         perm = tuple(range(N, 2*N)) + tuple(range(N))
         new_callback = None
 
         if oper.callback is not None:
+            perm_callback = perm
+            if batch_dims_callback:
+                perm_callback += (2 * N,)
+                
             @oper.callback.__class__
             def new_callback(t, _):
                 # TODO: copy needed?
                 return (
-                    oper.callback.Callback(t, _)
-                    .transpose(perm)
+                    oper.callback.callback(t, _)
+                    .transpose(perm_callback)
                     .copy(order="F")
                 )
 
+        if batch_dims_oper:
+            perm += (2 * N,)
         out = DenseOperator(
             oper.data.transpose(perm).copy(order="F"),
             callback=new_callback
@@ -159,10 +168,11 @@ class Term(NamedTuple):
 
 
 def _has_dual(arg):
-    for duals in zip(arg.duals):
-        for dual in zip(duals):
-            if dual:
-                return True
+    for term_duals in arg.duals:
+        for oper_dual in term_duals:
+            for mode_dual in oper_dual:
+                if mode_dual:
+                    return True
     return False
 
 
@@ -699,9 +709,15 @@ def dimensions_CuOperator(matrix, hilbert, order):
 
 
 @_data.isequal.register(CuOperator)
-def isequal_CuOperator(left, right):
-    # TODO: Implement real one
-    return left is right
+def isequal_CuOperator(left, right, atol=-1, rtol=-1):
+    if not _compare_hilbert(left.hilbert_dims, right.hilbert_dims):
+        return False
+    if atol < 0:
+        atol = settings.core["atol"]
+    if rtol < 0:
+        rtol = settings.core["rtol"]
+    # TODO: Implement real one 
+    return np.allclose(left.to_array(), right.to_array(), rtol, atol)
 
 
 ###############################################################################
