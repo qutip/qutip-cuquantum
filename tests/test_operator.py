@@ -301,3 +301,59 @@ class TestKron(test_tools.TestKron):
 
     shapes = _compatible_hilbert + _imcompatible_hilbert
     bad_shapes = []
+
+
+class TestIsEqual:
+
+    _compatible_hilbert = [
+        ((2,), (2,)),
+        ((2, 3), (2, 3)),
+        ((2, 3), (-6,)),
+        ((2, -4), (-4, 2)),
+        ((2, 3, -4), (-6, 2, 2)),
+    ]
+    
+    _imcompatible_hilbert = [
+        ((2,), (2,)),
+        ((2, 3), (3, 2)),
+        ((2, 3), (6,)),
+        ((2, -4), (4, -2)),
+        ((2, 3, -4), (6, 2, 2)),
+    ]
+    
+    def op_numpy(self, left, right, atol, rtol):
+        return np.allclose(left.to_array(), right.to_array(), rtol, atol)
+
+    @pytest.mark.parametrize("hilbert", _compatible_hilbert)
+    def test_same_shape(self, hilbert):
+        atol = 1e-8
+        rtol = 1e-6
+        A = random_CuOperator(hilbert[0], [2], 23)
+        B = random_CuOperator(hilbert[1], [1, 1], 32)
+        assert _data.isequal(A, A, atol, rtol)
+        assert _data.isequal(B, B, atol, rtol)
+        assert (
+            _data.isequal(A, B, atol, rtol) == self.op_numpy(A, B, atol, rtol)
+        )
+
+    @pytest.mark.parametrize("hilbert", _imcompatible_hilbert)
+    def test_different_shape(self, hilbert):
+        A = random_CuOperator(hilbert[0], [1], 21)
+        B = random_CuOperator(hilbert[1], [1], 12)
+        assert not _data.isequal(A, B, np.inf, np.inf)
+
+    @pytest.mark.parametrize("rtol", [1e-6, 100])
+    @pytest.mark.parametrize("hilbert", _compatible_hilbert)
+    def test_rtol(self, hilbert, rtol):
+        mat = random_CuOperator(hilbert[0], [1], 135)
+        assert _data.isequal(mat + mat * (rtol / 10), mat, 1e-14, rtol)
+        assert not _data.isequal(mat * (1 + rtol * 10), mat, 1e-14, rtol)
+
+    @pytest.mark.parametrize("atol", [1e-14, 1e-6, 100])
+    @pytest.mark.parametrize("hilbert", _compatible_hilbert)
+    def test_atol(self, hilbert, atol):
+        A = random_CuOperator(hilbert[0], [1, 1], 123)
+        B = random_CuOperator(hilbert[1], [2], 321)
+        assert _data.isequal(A, A + B * (atol / 10), atol, 0)
+        assert not _data.isequal(A, A + B * (atol * 10), atol, 0)
+    

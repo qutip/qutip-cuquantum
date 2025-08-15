@@ -61,7 +61,7 @@ except ImportError:
 
 
 from .qobjevo import CuQobjEvo
-from .ode import Result
+from .ode import Result, CuMCIntegrator
 
 
 class cuDensityOption(QutipOptions):
@@ -89,6 +89,8 @@ def set_as_default(ctx):
     qutip.SESolver._resultclass = Result
     qutip.MESolver._resultclass = Result
     qutip.MCSolver._trajectory_resultclass = Result
+    qutip.MCSolver._mc_integrator_class = CuMCIntegrator
+    
 
 
 # Cleaning the namespace

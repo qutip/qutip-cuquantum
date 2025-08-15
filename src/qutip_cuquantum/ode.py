@@ -1,6 +1,6 @@
 import qutip
 import qutip.solver.integrator as qode
-from qutip.solver.mcsolve import MCSolver
+from qutip.solver.mcsolve import MCSolver, MCIntegrator
 from qutip.solver.mesolve import MESolver
 from qutip.solver.sesolve import SESolver
 from qutip.solver.result import Result as qt_Result
@@ -63,6 +63,20 @@ class CuIntegratorTsit5(qode.IntegratorTsit5):
         state = CuState(state, self.system.hilbert_space_dims)
         self._ode_solver.set_initial_value(state, t)
         self._is_set = True
+
+
+class CuMCIntegrator(MCIntegrator):
+    def __init__(self, integrator, system, options=None):
+        self._integrator = integrator
+        self.system = system
+        self._c_ops = [CuQobjEvo(op) for op in system.c_ops]
+        self._n_ops = [CuQobjEvo(op) for op in system.n_ops]
+        self.options = options
+        self._generator = None
+        self.method = f"{self.name} {self._integrator.method}"
+        self._is_set = False
+        self.issuper = self._c_ops[0].issuper
+
 
 
 MCSolver.add_integrator(CuIntegratorVern7, "CuVern7")
