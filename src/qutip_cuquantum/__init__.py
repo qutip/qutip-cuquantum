@@ -11,10 +11,10 @@ except ImportError as err:
     ])) from err
 
 try:
-    import cuquantum
+    import cuquantum.densitymat
 except ImportError as err:
     raise ImportError("\n".join([
-        "cuQuantum is not installed or could not be imported.",
+        "cuQuantum.densitymat is not installed or could not be imported.",
         "Please install the appropriate version for your CUDA toolkit manually.",
         "For example, for CUDA 12.x, run:",
         "    pip install cuquantum-python-cu12",

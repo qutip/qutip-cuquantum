@@ -716,7 +716,9 @@ def isequal_CuOperator(left, right, atol=-1, rtol=-1):
         atol = settings.core["atol"]
     if rtol < 0:
         rtol = settings.core["rtol"]
-    # TODO: Implement real one 
+    # TODO: Implement real one
+    if left.shape[0] > 1000:
+        return left is right
     return np.allclose(left.to_array(), right.to_array(), rtol, atol)
 
 
