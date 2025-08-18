@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cuQuantum Backend in QuTiP’s Solver &mdash; qutip_cuquantum 0.1.0.dev0 documentation</title>
+  <title>cuQuantum Backend in QuTiP’s Solvers &mdash; qutip_cuquantum 0.1.0.dev0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/plot_directive.css" type="text/css" />
@@ -47,8 +47,24 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">User guide</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">cuQuantum Backend in QuTiP’s Solver</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#using-cuquantum-in-mesolve">Using cuQuantum in <code class="docutils literal notranslate"><span class="pre">mesolve</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">cuQuantum Backend in QuTiP’s Solvers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#enabling-the-cuquantum-backend">Enabling the cuQuantum Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#usage-with-solvers">Usage with Solvers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#supported-solvers">Supported Solvers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#integration-methods">Integration Methods</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-and-advanced-usage">Performance and Advanced Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#when-to-use-this-backend">When to Use This Backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multi-gpu-and-multi-node-execution">Multi-GPU and Multi-Node Execution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#limitations-and-best-practices">Limitations and Best Practices</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#rectangular-operators">Rectangular Operators</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#time-dependent-systems">Time-Dependent Systems</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -67,7 +83,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">cuQuantum Backend in QuTiP’s Solver</li>
+      <li class="breadcrumb-item active">cuQuantum Backend in QuTiP’s Solvers</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/solver.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -77,34 +93,140 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="cuquantum-backend-in-qutip-s-solver">
-<span id="qtcuqu-solver"></span><h1>cuQuantum Backend in QuTiP’s Solver<a class="headerlink" href="#cuquantum-backend-in-qutip-s-solver" title="Permalink to this heading"></a></h1>
-<section id="using-cuquantum-in-mesolve">
-<span id="mesolve"></span><h2>Using cuQuantum in <code class="docutils literal notranslate"><span class="pre">mesolve</span></code><a class="headerlink" href="#using-cuquantum-in-mesolve" title="Permalink to this heading"></a></h2>
-<p>This pluggins adds integrations method that uses <code class="docutils literal notranslate"><span class="pre">densitymat</span></code>: <code class="docutils literal notranslate"><span class="pre">CuTsit5</span></code>, <code class="docutils literal notranslate"><span class="pre">CuVern7</span></code> and <code class="docutils literal notranslate"><span class="pre">CuVern9</span></code>.</p>
-<p>To use them, we need to call the <code class="docutils literal notranslate"><span class="pre">set_as_default</span></code> function:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">qutip</span>
+  <section id="cuquantum-backend-in-qutip-s-solvers">
+<span id="qtcuqu-solver"></span><h1>cuQuantum Backend in QuTiP’s Solvers<a class="headerlink" href="#cuquantum-backend-in-qutip-s-solvers" title="Permalink to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">qutip-cuquantum</span></code> library provides a backend that leverages NVIDIA’s cuQuantum SDK to accelerate the simulation of quantum systems.
+This backend is specifically designed for simulating <strong>large, composite quantum systems</strong> by performing tensor network contractions on the GPU.</p>
+<p>This document outlines how to activate and use this backend with QuTiP’s solvers.</p>
+<section id="enabling-the-cuquantum-backend">
+<h2>Enabling the cuQuantum Backend<a class="headerlink" href="#enabling-the-cuquantum-backend" title="Permalink to this heading"></a></h2>
+<p>To use the cuQuantum-based solvers, you must first enable the backend.
+This is done by calling the <code class="docutils literal notranslate"><span class="pre">set_as_default</span></code> function and providing it with a <code class="docutils literal notranslate"><span class="pre">WorkStream</span></code> object from <code class="docutils literal notranslate"><span class="pre">cuquantum.densitymat</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">qutip</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">qutip_cuquantum</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">cuquantum.densitymat</span><span class="w"> </span><span class="kn">import</span> <span class="n">WorkStream</span>
 
-<span class="n">qutip_cuquantum</span><span class="o">.</span><span class="n">set_as_default</span><span class="p">(</span><span class="n">WorkStream</span><span class="p">())</span>
-</pre></div>
-</div>
-<p>** This operation in not reversible **</p>
-<p>The workstream can be multi-gpu, multi-node. See nvidia’s documentation for more details.</p>
-<p>Once set, we can use qutip mostly as normal:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">H</span> <span class="o">=</span> <span class="n">qutip</span><span class="o">.</span><span class="n">rand_herm</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
-<span class="n">c_ops</span> <span class="o">=</span> <span class="p">[</span><span class="n">qutip</span><span class="o">.</span><span class="n">destroy</span><span class="p">(</span><span class="mi">5</span><span class="p">)]</span>
-<span class="n">rho0</span> <span class="o">=</span> <span class="n">qutip</span><span class="o">.</span><span class="n">basis</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="c1"># Create a workstream for the backend.</span>
+<span class="c1"># This can be configured for multi-GPU and multi-node setups.</span>
+<span class="n">stream</span> <span class="o">=</span> <span class="n">WorkStream</span><span class="p">()</span>
 
-<span class="n">result</span> <span class="o">=</span> <span class="n">qutip</span><span class="o">.</span><span class="n">mesolve</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">rho0</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c_ops</span><span class="o">=</span><span class="n">c_ops</span><span class="p">,</span> <span class="n">e_ops</span><span class="o">=</span><span class="p">[</span><span class="n">qutip</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="mi">5</span><span class="p">)])</span>
+<span class="c1"># Set cuQuantum as the default backend.</span>
+<span class="n">qutip_cuquantum</span><span class="o">.</span><span class="n">set_as_default</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>This backend is optimized for large compound systems.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">set_as_default</span></code> function changes several QuTiP defaults to route computations through the cuQuantum library.
+This includes setting the default data format for quantum objects (<code class="docutils literal notranslate"><span class="pre">Qobj</span></code>) to <code class="docutils literal notranslate"><span class="pre">CuOperator</span></code> and configuring the solvers to use GPU-compatible integrators.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This operation is <strong>not reversible</strong> within the same Python session.
+Once the cuQuantum backend is set, all subsequent compatible operations will be dispatched to the GPU.</p>
+</div>
+</section>
+<section id="usage-with-solvers">
+<h2>Usage with Solvers<a class="headerlink" href="#usage-with-solvers" title="Permalink to this heading"></a></h2>
+<p>Once the backend is enabled, you can use compatible QuTiP solvers as you normally would.</p>
+<section id="supported-solvers">
+<h3>Supported Solvers<a class="headerlink" href="#supported-solvers" title="Permalink to this heading"></a></h3>
+<p>The backend has been tested and is known to work with the following solvers:</p>
 <ul class="simple">
-<li><p>Rectangular operators are not supported.</p></li>
-<li><p>Time dependent system of the form <code class="docutils literal notranslate"><span class="pre">f(t)</span> <span class="pre">-&gt;</span> <span class="pre">Qobj</span></code> are supported, but not recommended.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qutip.sesolve</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qutip.mesolve</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qutip.mcsolve</span></code></p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Other solvers have not been tested and may not function correctly with this backend.</p>
+</div>
+</section>
+<section id="integration-methods">
+<h3>Integration Methods<a class="headerlink" href="#integration-methods" title="Permalink to this heading"></a></h3>
+<p>The backend introduces its own set of ordinary differential equation (ODE) integration methods, which are wrappers around existing QuTiP methods, optimized for the <code class="docutils literal notranslate"><span class="pre">CuOperator</span></code> data type.
+You must use one of the following methods in your solver options:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;CuTsit5&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;CuVern7&quot;</span></code>  (New default)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;CuVern9&quot;</span></code></p></li>
+</ul>
+<p>Using any other integration method will result in undefined behaviour.</p>
+</section>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading"></a></h3>
+<p>Here is a simple example of running <code class="docutils literal notranslate"><span class="pre">mesolve</span></code> on the GPU:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># This example assumes the backend has already been set as shown above.</span>
+
+<span class="n">N</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">H</span> <span class="o">=</span> <span class="n">qutip</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">qutip</span><span class="o">.</span><span class="n">rand_herm</span><span class="p">(</span><span class="n">N</span><span class="p">),</span> <span class="n">qutip</span><span class="o">.</span><span class="n">qeye</span><span class="p">(</span><span class="mi">2</span><span class="p">)])</span>
+<span class="n">c_ops</span> <span class="o">=</span> <span class="p">[</span><span class="n">qutip</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">qutip</span><span class="o">.</span><span class="n">destroy</span><span class="p">(</span><span class="n">N</span><span class="p">),</span> <span class="n">qutip</span><span class="o">.</span><span class="n">sigmax</span><span class="p">())]</span>
+<span class="n">rho0</span> <span class="o">=</span> <span class="n">qutip</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">qutip</span><span class="o">.</span><span class="n">basis</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">qutip</span><span class="o">.</span><span class="n">basis</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">proj</span><span class="p">()</span>
+<span class="n">times</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]</span>
+<span class="n">e_ops</span> <span class="o">=</span> <span class="p">[</span><span class="n">qutip</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">qutip</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">N</span><span class="p">),</span> <span class="n">qutip</span><span class="o">.</span><span class="n">qeye</span><span class="p">(</span><span class="mi">2</span><span class="p">))]</span>
+
+<span class="c1"># No options are needed if you want to use the default &quot;CuVern7&quot; method.</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">qutip</span><span class="o">.</span><span class="n">mesolve</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">rho0</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">c_ops</span><span class="o">=</span><span class="n">c_ops</span><span class="p">,</span> <span class="n">e_ops</span><span class="o">=</span><span class="n">e_ops</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="performance-and-advanced-usage">
+<h2>Performance and Advanced Usage<a class="headerlink" href="#performance-and-advanced-usage" title="Permalink to this heading"></a></h2>
+<section id="when-to-use-this-backend">
+<h3>When to Use This Backend<a class="headerlink" href="#when-to-use-this-backend" title="Permalink to this heading"></a></h3>
+<p>The cuQuantum backend excels at simulating <strong>large compound systems</strong>.
+Its performance advantage comes from using tensor network algorithms on the GPU, which is most effective when the Hilbert space is composed of many smaller subsystems.
+For small, single-component systems, the overhead of GPU data transfers may make it slower than the default CPU-based solvers.</p>
+</section>
+<section id="multi-gpu-and-multi-node-execution">
+<h3>Multi-GPU and Multi-Node Execution<a class="headerlink" href="#multi-gpu-and-multi-node-execution" title="Permalink to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">WorkStream</span></code> object can be configured with MPI for distributed execution across multiple GPUs on a single node or across multiple nodes in a cluster.
+For details on creating a multi-GPU or multi-node <code class="docutils literal notranslate"><span class="pre">WorkStream</span></code>, please refer to the NVIDIA cuQuantum documentation.</p>
+<p>However, users should be aware of the performance implications:</p>
+<ul class="simple">
+<li><p><strong>Single-Node, Multi-GPU</strong>: Scaling from one to multiple GPUs on a single machine introduces significant overhead.
+A performance benefit is typically only seen for <strong>very large</strong> system sizes and requires a properly configured MPI and CUDA environment.</p></li>
+<li><p><strong>Multi-Node</strong>: Extending to multiple nodes adds another layer of communication overhead.
+This is only beneficial for <strong>extremely large</strong> systems that cannot fit on a single node.
+Performance is highly dependent on the cluster’s internode GPU communication protocols (e.g., NVLink, InfiniBand), which can be complex to debug and optimize.</p></li>
+</ul>
+</section>
+</section>
+<section id="limitations-and-best-practices">
+<h2>Limitations and Best Practices<a class="headerlink" href="#limitations-and-best-practices" title="Permalink to this heading"></a></h2>
+<p>Please be aware of the following limitations when using the cuQuantum backend.</p>
+<section id="rectangular-operators">
+<h3>Rectangular Operators<a class="headerlink" href="#rectangular-operators" title="Permalink to this heading"></a></h3>
+<p>Rectangular operators (where the number of rows and columns are not equal) are not supported by the <code class="docutils literal notranslate"><span class="pre">CuOperator</span></code> data format.
+If your calculation requires rectangular operators as an intermediate step, you must explicitly create them as dense matrices and only convert the final, square operator to the <code class="docutils literal notranslate"><span class="pre">CuOperator</span></code> format.</p>
+</section>
+<section id="time-dependent-systems">
+<h3>Time-Dependent Systems<a class="headerlink" href="#time-dependent-systems" title="Permalink to this heading"></a></h3>
+<p>Time-dependent systems can be defined in two ways in QuTiP: as a list of <code class="docutils literal notranslate"><span class="pre">[Operator,</span> <span class="pre">Coefficient]</span></code> pairs or as a function that returns a <code class="docutils literal notranslate"><span class="pre">Qobj</span></code> at a given time <code class="docutils literal notranslate"><span class="pre">t</span></code>.</p>
+<ul class="simple">
+<li><p><strong>Coefficient pairs</strong>: This format is supported and works well with the backend.</p></li>
+<li><p><strong>Function-based `f(t) -&gt; Qobj`</strong>: This format works but can be inefficient if not constructed carefully.
+For best performance, the function should return a time-dependent operator defined on the <strong>smallest possible Hilbert space</strong>.
+The full operator can then be constructed using <code class="docutils literal notranslate"><span class="pre">qutip.tensor</span></code> and <code class="docutils literal notranslate"><span class="pre">qutip.QobjEvo</span></code>.</p></li>
+</ul>
+<p>For example, to create a time-dependent operator acting only on the first subsystem:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Recommended approach:</span>
+<span class="c1"># Define the time-dependent part on the smallest Hilbert space.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="c1"># This returns a 2x2 Qobj.</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">qutip</span><span class="o">.</span><span class="n">sigmax</span><span class="p">()</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">expm</span><span class="p">()</span>
+
+<span class="c1"># Build the full operator using QobjEvo and tensor products.</span>
+<span class="n">oper</span> <span class="o">=</span> <span class="n">qutip</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">qutip</span><span class="o">.</span><span class="n">QobjEvo</span><span class="p">(</span><span class="n">g</span><span class="p">),</span> <span class="n">qutip</span><span class="o">.</span><span class="n">qeye</span><span class="p">(</span><span class="n">M</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Avoid this approach:</span>
+<span class="c1"># This function is inefficient as it creates a (2*M x 2*M) dense matrix</span>
+<span class="c1"># and lose the tensor structure used for efficient computations.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">qutip</span><span class="o">.</span><span class="n">tensor</span><span class="p">((</span><span class="n">qutip</span><span class="o">.</span><span class="n">sigmax</span><span class="p">()</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">expm</span><span class="p">(),</span> <span class="n">qutip</span><span class="o">.</span><span class="n">qeye</span><span class="p">(</span><span class="n">M</span><span class="p">))</span>
+
+<span class="n">oper</span> <span class="o">=</span> <span class="n">qutip</span><span class="o">.</span><span class="n">QobjEvo</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </section>
 </section>
 
