@@ -1,8 +1,8 @@
 .. _qtcuqu_solver:
 
-***********************************
+************************************
 cuQuantum Backend in QuTiP's Solvers
-***********************************
+************************************
 
 The ``qutip-cuquantum`` library provides a backend that leverages NVIDIA's cuQuantum SDK to accelerate the simulation of quantum systems.
 This backend is specifically designed for simulating **large, composite quantum systems** by performing tensor network contractions on the GPU.

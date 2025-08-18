@@ -74,7 +74,16 @@ cuDensityOption_instance = cuDensityOption()
 cuDensityOption_instance._set_as_global_default()
 
 
-def set_as_default(ctx):
+def set_as_default(ctx: cuquantum.densitymat.WorkStream):
+    """
+    Update qutip's default to use cuQuantum as a backend.
+
+    Parameters
+    ----------
+    ctx: WorkStream
+        A WorkStream instance from cuquantum.density.
+        It can be set with mpi support for multi-gpu simulations.
+    """
     qutip.settings.cuDensity["ctx"] = ctx
     qutip.settings.core["default_dtype"] = "cuDensity"
     qutip.settings.core['numpy_backend'] = cupy
@@ -90,7 +99,7 @@ def set_as_default(ctx):
     qutip.MESolver._resultclass = Result
     qutip.MCSolver._trajectory_resultclass = Result
     qutip.MCSolver._mc_integrator_class = CuMCIntegrator
-    
+
 
 
 # Cleaning the namespace

@@ -1,6 +1,6 @@
 import pathlib
 import warnings
-
+import sys
 import packaging.version
 
 
@@ -9,6 +9,10 @@ needs_sphinx = '4.0'
 project = 'qutip_cuquantum'
 author = 'QuTiP developers'
 copyright = '2025 and later, ' + author
+
+sys.path.insert(0, str(
+    pathlib.Path("..", "..", "src").resolve()
+))
 
 
 def _version():
@@ -57,7 +61,7 @@ intersphinx_mapping = {
     'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
     'cython': ('https://cython.readthedocs.io/en/latest/', None),
     'cuquantum': ('https://docs.nvidia.com/cuda/cuquantum/latest/index.html', None),
-    
+
 }
 
 # -- Options for numpydoc ---------------------------------------

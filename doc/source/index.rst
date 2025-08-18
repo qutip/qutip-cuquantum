@@ -6,7 +6,7 @@
         :width: 5in
 
 *********************************************************
-qutip-cuquantum |version|: cuQuantum-backend for QuTiP 
+qutip-cuquantum |version|: cuQuantum-backend for QuTiP
 *********************************************************
 
 
@@ -24,22 +24,15 @@ qutip-cuquantum |version|: cuQuantum-backend for QuTiP
 
     solver.rst
 
-
-.. toctree::
-    :maxdepth: 2
-    :caption: API documentation
-
-    apidoc.rst
-
 ..
     .. toctree::
         :maxdepth: 2
         :caption: Changelog
-    
+
         changelog.rst
-    
-    
+
+
     .. toctree::
         :caption: Bibliography
-    
+
         bibliography.rst
