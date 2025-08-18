@@ -49,7 +49,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'QuTiP-Jax: Jax support for QuTiP'
+project = 'QuTiP-cuQuantum: cuQuantum support for QuTiP'
 author = ', '.join([
     'E. Giguère',
 ])
@@ -306,7 +306,7 @@ man_pages = [
 texinfo_documents = [
     (master_doc, 'qutip_cuquantum', project,
      author, 'QuTiP-cuQuantum',
-     'Jax support for QuTiP',
+     'cuQuantum support for QuTiP',
      'Miscellaneous'),
 ]
 
