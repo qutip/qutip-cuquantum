@@ -1,0 +1,189 @@
+name: Publish qutip-cuquantum to PyPI and TestPyPI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  workflow_dispatch:
+
+jobs:
+  update_version:
+    name: Update dev version
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: Increment VERSION
+        run: |
+          version="$(cat VERSION)"
+          python -c "b, n = '$version'.split('v'); print('v'.join([b, str(int(n)+1)]))" > VERSION
+      - name: Add commit
+        run: |
+          git config --global user.email "Version_Incrementer@gh_bot"
+          git config --global user.name "Version Incrementer"
+          git commit -a -m "CI: Increment version"
+          git push
+
+  build_sdist:
+    name: Build sdist
+    needs: update_version
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout updated version
+        if: github.ref == 'refs/heads/main'
+        run: git pull
+
+      - uses: actions/setup-python@v5
+        name: Install Python
+        with:
+          python-version: '3.10'
+
+      - name: Install pip build
+        run: python -m pip install build
+
+      - name: Build sdist tarball
+        run: python -m build --sdist .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  build_wheels:
+    name: Build wheels
+    needs: deploy_test
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      # Set up wheels matrix.  This is CPython 3.10--3.13.
+      CIBW_BUILD: "cp3{10,11,12,13}-*"
+      # Numpy and SciPy do not supply wheels for i686 for Python 3.10+:
+      CIBW_SKIP: "*-musllinux* *-manylinux_i686"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout updated version
+        if: github.ref == 'refs/heads/main'
+        run: git pull
+
+      - uses: actions/setup-python@v5
+        name: Install Python
+        with:
+          python-version: '3.10'
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build wheels
+        shell: bash
+        run: |
+          python -m cibuildwheel --output-dir wheelhouse
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-wheels
+          path: ./wheelhouse/*.whl
+          if-no-files-found: error
+
+  publish-to-pypi:
+    name: Publish qutip-cuquantum to PyPI
+    if: github.ref_type == 'tag'
+    needs: [build_sdist, build_wheels]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/qutip-cuquantum
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download all dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+    - name: Verify this is not a dev version
+      shell: bash
+      run: |
+        ls dist/*.whl
+        echo $GITHUB_REF
+        if [[ $(ls dist/*.whl) == *dev* ]]; then echo dist/*.whl; exit 1; fi
+        if [[ "$GITHUB_REF" == *"main"* ]]; then echo $GITHUB_REF; exit 1; fi
+
+    - name: Publish distribution to PyPI
+      if: github.repository == 'qutip/qutip-cuquantum'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true
+
+
+  github-release:
+    name: Create GitHub Release and Sign Artifacts
+    needs: publish-to-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # IMPORTANT: mandatory for making GitHub Releases
+      id-token: write  # IMPORTANT: mandatory for sigstore
+
+    steps:
+      - name: Download all dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: tru
+
+      - name: Sign the dists with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        with:
+          inputs: >-
+            ./dist/*.tar.gz
+            ./dist/*.whl
+
+      - name: Upload artifact signatures to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        # Upload to GitHub Release using the `gh` CLI.
+        # `dist/` contains the built packages, and the
+        # sigstore-produced signatures and certificates.
+        run: >-
+          gh release upload "$GITHUB_REF_NAME" dist/** --repo "$GITHUB_REPOSITORY"
+
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI
+    needs: [build_sdist, build_wheels]
+    if: github.ref_type != 'tag' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/qutip-cuquantum
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all dist artifacts
+      uses: actions/download-artifact@v4
+      with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true # Merge into a single 'dist' directory
+
+    - name: Publish distribution to TestPyPI
+      if: github.repository == 'qutip/qutip-cuquantum'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        verbose: true
