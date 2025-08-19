@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
+        # A token is required to push the version commit back to the repository.
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Increment VERSION
         run: |
           version="$(cat VERSION)"
@@ -62,7 +65,7 @@ jobs:
 
   build_wheels:
     name: Build wheels
-    needs: deploy_test
+    needs: update_version
     if: always()
     runs-on: ubuntu-latest
     env:
@@ -146,7 +149,7 @@ jobs:
         with:
           pattern: dist-*
           path: dist
-          merge-multiple: tru
+          merge-multiple: true
 
       - name: Sign the dists with Sigstore
         uses: sigstore/gh-action-sigstore-python@v3.0.0
