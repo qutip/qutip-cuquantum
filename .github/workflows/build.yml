@@ -91,6 +91,34 @@ jobs:
           if-no-files-found: error
 
 
+  publish_to_testpypi:
+    name: Publish to TestPyPI
+    needs: [build_sdist, build_wheels]
+    if: github.ref_type != 'tag' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/qutip-cuquantum
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all dist artifacts
+      uses: actions/download-artifact@v4
+      with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true # Merge into a single 'dist' directory
+
+    - name: Publish distribution to TestPyPI
+      if: github.repository == 'qutip/qutip-cuquantum'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        verbose: true
+
+
   publish_to_pypi:
     name: Publish qutip-cuquantum to PyPI
     if: github.ref_type == 'tag'
@@ -156,31 +184,3 @@ jobs:
         # sigstore-produced signatures and certificates.
         run: >-
           gh release upload "$GITHUB_REF_NAME" dist/** --repo "$GITHUB_REPOSITORY"
-
-
-  publish_to_testpypi:
-    name: Publish to TestPyPI
-    needs: [build_sdist, build_wheels]
-    if: github.ref_type != 'tag' && github.ref_name == 'main'
-    runs-on: ubuntu-latest
-
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/qutip-cuquantum
-    permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
-
-    steps:
-    - name: Download all dist artifacts
-      uses: actions/download-artifact@v4
-      with:
-          pattern: dist-*
-          path: dist
-          merge-multiple: true # Merge into a single 'dist' directory
-
-    - name: Publish distribution to TestPyPI
-      if: github.repository == 'qutip/qutip-cuquantum'
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: https://test.pypi.org/legacy/
-        verbose: true
