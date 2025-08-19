@@ -12,19 +12,21 @@ on:
 jobs:
   update_version:
     name: Update dev version
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: checkout
+        if: github.ref == 'refs/heads/main'
         uses: actions/checkout@v4
         # A token is required to push the version commit back to the repository.
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Increment VERSION
+        if: github.ref == 'refs/heads/main'
         run: |
           version="$(cat VERSION)"
           python -c "b, n = '$version'.split('v'); print('v'.join([b, str(int(n)+1)]))" > VERSION
       - name: Add commit
+        if: github.ref == 'refs/heads/main'
         run: |
           git config --global user.email "Version_Incrementer@gh_bot"
           git config --global user.name "Version Incrementer"
@@ -35,7 +37,6 @@ jobs:
   build_sdist:
     name: Build sdist
     needs: update_version
-    if: always()
     runs-on: ubuntu-latest
 
     steps:
@@ -66,7 +67,6 @@ jobs:
   build_wheels:
     name: Build wheels
     needs: update_version
-    if: always()
     runs-on: ubuntu-latest
     env:
       # Set up wheels matrix.  This is CPython 3.10--3.13.
@@ -75,7 +75,8 @@ jobs:
       CIBW_SKIP: "*-musllinux* *-manylinux_i686"
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Checkout updated version
         if: github.ref == 'refs/heads/main'
@@ -90,9 +91,7 @@ jobs:
         run: python -m pip install cibuildwheel
 
       - name: Build wheels
-        shell: bash
-        run: |
-          python -m cibuildwheel --output-dir wheelhouse
+        run: python -m cibuildwheel --output-dir wheelhouse
 
       - uses: actions/upload-artifact@v4
         with:
