@@ -98,7 +98,7 @@ jobs:
           if-no-files-found: error
 
 
-  publish-to-pypi:
+  publish_to_pypi:
     name: Publish qutip-cuquantum to PyPI
     if: github.ref_type == 'tag'
     needs: [build_sdist, build_wheels]
@@ -132,9 +132,9 @@ jobs:
         verbose: true
 
 
-  github-release:
+  github_release:
     name: Create GitHub Release and Sign Artifacts
-    needs: publish-to-pypi
+    needs: publish_to_pypi
     runs-on: ubuntu-latest
     permissions:
       contents: write  # IMPORTANT: mandatory for making GitHub Releases
@@ -165,7 +165,7 @@ jobs:
           gh release upload "$GITHUB_REF_NAME" dist/** --repo "$GITHUB_REPOSITORY"
 
 
-  publish-to-testpypi:
+  publish_to_testpypi:
     name: Publish to TestPyPI
     needs: [build_sdist, build_wheels]
     if: github.ref_type != 'tag' && github.ref_name == 'main'
