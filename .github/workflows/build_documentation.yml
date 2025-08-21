@@ -1,0 +1,33 @@
+name: Build HTML documentation
+
+on:
+  [push, pull_request]
+
+jobs:
+  build:
+    name: Build HTML documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        name: Install Python
+        with:
+          python-version: '3.10'
+
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install -r doc/requirements.txt
+
+      - name: Build documentation
+        working-directory: doc
+        run: |
+          make html SPHINXOPTS="-W --keep-going -T"
+
+      - name: Upload built files
+        uses: actions/upload-artifact@v4
+        with:
+          name: qutip-cuquantum_html_docs
+          path: doc/_build/html/*
+          if-no-files-found: error

@@ -4,7 +4,7 @@ requires = [
     "packaging",
     "wheel",
     "Cython",
-    "qutip>=5.0.0", # TODO: 5.2.1 we released
+    "qutip@git+https://github.com/qutip/qutip.git", # TODO: 5.2.1 we released
     "numpy",
 ]
 build-backend = "setuptools.build_meta"
@@ -17,7 +17,7 @@ authors = [
 ]
 description = "cuQuantum's cuDensityMat backend for QuTiP"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: BSD License",
