@@ -10,9 +10,9 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 # URLs for your project
-[project.urls]
-Homepage = "https://github.com/qutip/qutip-cuquantum"
-"Bug Tracker" = "https://github.com/your-username/my-awesome-project/issues"
+# [project.urls]
+# Homepage = "https://github.com/qutip/qutip-cuquantum"
+# "Bug Tracker" = "https://github.com/qutip/qutip-cuquantum/issues"
 
 
 [tool.pytest.ini_options]
