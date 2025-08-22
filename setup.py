@@ -110,8 +110,6 @@ def get_ext_modules(options):
     return cythonize(ext)
 
 
-
-
 if __name__ == "__main__":
     options = process_options()
     create_version_py_file(options)
@@ -119,5 +117,6 @@ if __name__ == "__main__":
     # keep here are ones that we have done some compile-time processing on.
 
     setuptools.setup(
+        version = options["version"],
         ext_modules = get_ext_modules(options),
     )
