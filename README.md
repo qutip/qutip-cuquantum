@@ -14,7 +14,7 @@ pip install git+https://github.com/qutip/qutip.git
 pip install git+https://github.com/qutip/qutip-cuquantum.git
 ```
 
-It require cuquantum to be installed at runtime, see [nvidia;s documentation](https://docs.nvidia.com/cuda/cuquantum/latest/getting-started/index.html#installing-cuquantum) for installation instruction.
+It require cuquantum to be installed at runtime, see [nvidia's documentation](https://docs.nvidia.com/cuda/cuquantum/latest/getting-started/index.html#installing-cuquantum) for installation instruction.
 
 ## Usage
 
