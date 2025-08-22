@@ -16,7 +16,7 @@ sys.path.insert(0, str(
 
 
 def _version():
-    filename = pathlib.Path(__file__).absolute().parents[2] / 'VERSION'
+    filename = pathlib.Path(__file__).absolute().parents[3] / 'VERSION'
     with open(filename, "r") as file:
         version = file.read().strip()
     # Canonicalise the version format, just in case.
@@ -78,6 +78,8 @@ napoleon_use_admonition_for_notes = True
 # and should not be overwritten.
 autosummary_generate = False
 autosummary_imported_members = True
+
+autodoc_mock_imports = ["qutip_cuquantum"]
 
 # -- Options for biblatex ---------------------------------------
 

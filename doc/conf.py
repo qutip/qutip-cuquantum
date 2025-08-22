@@ -264,7 +264,7 @@ latex_keep_old_macro_names=True
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'qutip', project, [author], 1)
+    (master_doc, 'QuTiP-cuQuantum', project, [author], 1)
 ]
 
 # -- Doctest Setup ---------------------------------------
@@ -311,21 +311,14 @@ texinfo_documents = [
 ]
 
 autodoc_member_order = 'alphabetical'
+autodoc_mock_imports = ["qutip_cuquantum"]
+
 
 ## EXTLINKS CONFIGURATION ######################################################
 
 extlinks = {
     'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:%s'),
     'doi': ('https://dx.doi.org/%s', 'doi:%s'),
-}
-
-# configuration declares the location of the examples directory for
-# Sphinx Gallery
-
-sphinx_gallery_conf = {
-     'examples_dirs': 'gallery/src',   # path to your example scripts
-     'gallery_dirs': 'gallery/build',  # save generated examples
-     'abort_on_example_error': True  # abort if exception occurs
 }
 
 ipython_strict_fail = False
