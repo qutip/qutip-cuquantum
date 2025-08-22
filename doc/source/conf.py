@@ -41,8 +41,6 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.ifconfig',
     'sphinx.ext.napoleon',
-    # 'sphinx_gallery.gen_gallery',
-    # 'sphinxcontrib.bibtex',
 ]
 
 # Patterns to exclude when looking for sources in the build.

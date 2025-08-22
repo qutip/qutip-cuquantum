@@ -1,7 +1,6 @@
 [build-system]
 requires = [
     "setuptools",
-    "setuptools-scm",
     "packaging",
     "wheel",
     "Cython",
@@ -56,9 +55,3 @@ addopts = "-Werror --strict-config --strict-markers -W ignore::DeprecationWarnin
 testpaths = [
     "tests",
 ]
-
-[tool.setuptools_scm]
-# The defaults
-version_scheme = "guess-next-dev"
-local_scheme = "node-and-date"
-version_file = "src/qutip_cuquantum/version.py"
