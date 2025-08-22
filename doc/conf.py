@@ -60,10 +60,11 @@ copyright = '2025, QuTiP developers and contributors'
 def qutip_cuquantum_version():
     """ Retrieve the QuTiP version from ``../VERSION``.
     """
-    src_folder_root = pathlib.Path(__file__).absolute().parent.parent
-    version = src_folder_root.joinpath(
-        "VERSION"
-    ).read_text().strip()
+    src_folder_root = pathlib.Path(__file__).absolute().parent
+    if not (src_folder_root / "VERSION").exists():
+        # On readthedocs, this resolve to the doc directory
+        src_folder_root = src_folder_root.parent
+    version = src_folder_root.joinpath("VERSION").read_text().strip()
     return version
 
 
