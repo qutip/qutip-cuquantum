@@ -9,21 +9,6 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-[project]
-name = "qutip-cuquantum"
-version = "0.1.0"
-authors = [
-  { name="Eric Giguère", email="qutip-admin@googlegroups.com"},
-]
-description = "cuQuantum's cuDensityMat backend for QuTiP"
-readme = "README.md"
-requires-python = ">=3.11"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: BSD License",
-    "Operating System :: Unix",
-]
-
 # URLs for your project
 [project.urls]
 Homepage = "https://github.com/qutip/qutip-cuquantum"
