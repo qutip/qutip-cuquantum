@@ -119,6 +119,5 @@ if __name__ == "__main__":
     # keep here are ones that we have done some compile-time processing on.
 
     setuptools.setup(
-        version=options["version"],
         ext_modules = get_ext_modules(options),
     )
