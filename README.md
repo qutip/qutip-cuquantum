@@ -6,15 +6,27 @@ This backend is specifically designed for simulating **large, composite quantum 
 
 ## Installation
 
-qutip-cuquantum is not yet available on pypi.
-Installation must be done from source:
+qutip-cuquantum is available on pypi.
 
 ```
-pip install git+https://github.com/qutip/qutip.git
-pip install git+https://github.com/qutip/qutip-cuquantum.git
+pip install -U qutip>=5.2.1
+pip install qutip-cuquantum
 ```
 
-It require cuquantum to be installed at runtime, see [nvidia's documentation](https://docs.nvidia.com/cuda/cuquantum/latest/getting-started/index.html#installing-cuquantum) for installation instruction.
+
+It require cuquantum to be installed at runtime.
+If you have cuda already installed, you can install dependencies with:
+
+```
+pip install qutip-cuquantum[cuda11]
+```
+or
+```
+pip install qutip-cuquantum[cuda12]
+```
+
+If it does not work, you may need to install cuQuantum yourself,
+see [nvidia's documentation](https://docs.nvidia.com/cuda/cuquantum/latest/getting-started/index.html#installing-cuquantum) for installation instruction.
 
 ## Usage
 

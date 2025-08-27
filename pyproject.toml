@@ -4,7 +4,7 @@ requires = [
     "packaging",
     "wheel",
     "Cython",
-    "qutip@git+https://github.com/qutip/qutip.git", # TODO: 5.2.1 we released
+    "qutip>=5.2.1",
     "numpy",
 ]
 build-backend = "setuptools.build_meta"
@@ -29,7 +29,7 @@ classifiers = [
     "Operating System :: Unix",
 ]
 dependencies = [
-    "qutip @ git+https://github.com/qutip/qutip.git",  # Update next release
+    "qutip>=5.2.1",
 ]
 
 # URLs for your project
