@@ -3,3 +3,4 @@ include VERSION
 # support back to 36.6 (which added PEP 517 builds) if we're explicit.
 include pyproject.toml
 recursive-include tests *.py
+recursive-include src *.pyx
