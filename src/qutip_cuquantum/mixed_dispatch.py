@@ -2,6 +2,7 @@ import qutip.core.data as _data
 from qutip import settings
 from .state import zeros_like_cuState, CuState
 from .operator import CuOperator
+from .utils import _compare_hilbert
 
 import cuquantum.densitymat as cudense
 from cuquantum.densitymat import Operator
