@@ -64,7 +64,7 @@ except ImportError:
 from .qobjevo import CuQobjEvo
 from .ode import Result, CuMCIntegrator
 from qutip import settings
-from qutip.solver import SESolver, MESolver, McSolver, Result as BaseResult
+from qutip.solver import SESolver, MESolver, MCSolver, Result as BaseResult
 from qutip.solver.mcsolve import MCIntegrator
 
 
@@ -138,46 +138,46 @@ class CuQuantumBackend:
     """
     def __init__(self, ctx):
         self.ctx = ctx
-        previous_values = {}
+        self.previous_values = {}
 
-    def __enter__(self, ctx):
+    def __enter__(self):
         settings.cuDensity["ctx"] = self.ctx
-        previous_values{"default_dtype"} = qutip.settings.core["default_dtype"]
+        self.previous_values["default_dtype"] = qutip.settings.core["default_dtype"]
         settings.core["default_dtype"] = "cuDensity"
-        previous_values{"numpy_backend"} = qutip.settings.core["numpy_backend"]
+        self.previous_values["numpy_backend"] = qutip.settings.core["numpy_backend"]
         settings.core['numpy_backend'] = cupy
 
-        previous_values{"auto_real"} = settings.core["auto_real_casting"]
+        self.previous_values["auto_real"] = settings.core["auto_real_casting"]
         if True:  # if mpi, how to check from ctx?
             settings.core["auto_real_casting"] = False
 
-        previous_values{"SESolverM"} = SESolver.solver_options['method']
-        previous_values{"MESolverM"} = MESolver.solver_options['method']
-        previous_values{"MCSolverM"} = MCSolver.solver_options['method']
+        self.previous_values["SESolverM"] = SESolver.solver_options['method']
+        self.previous_values["MESolverM"] = MESolver.solver_options['method']
+        self.previous_values["MCSolverM"] = MCSolver.solver_options['method']
         SESolver.solver_options['method'] = "CuVern7"
         MESolver.solver_options['method'] = "CuVern7"
         MCSolver.solver_options['method'] = "CuVern7"
 
-        previous_values{"SESolverR"} = MCSolver._resultclass
-        previous_values{"MESolverR"} = MCSolver._resultclass
-        previous_values{"MCSolverR"} = MCSolver._trajectory_resultclass
-        previous_values{"MCSolverI"} = MCSolver._mc_integrator_class
+        self.previous_values["SESolverR"] = MCSolver._resultclass
+        self.previous_values["MESolverR"] = MCSolver._resultclass
+        self.previous_values["MCSolverR"] = MCSolver._trajectory_resultclass
+        self.previous_values["MCSolverI"] = MCSolver._mc_integrator_class
         SESolver._resultclass = Result
         MESolver._resultclass = Result
         MCSolver._trajectory_resultclass = Result
         MCSolver._mc_integrator_class = CuMCIntegrator
 
     def __exit__(self, exc_type, exc_value, traceback):
-        settings.core["default_dtype"] = previous_values{"default_dtype"}
-        settings.core['numpy_backend'] = previous_values{"numpy_backend"}
-        settings.core["auto_real_casting"] = previous_values{"auto_real"}
-        SESolver.solver_options['method'] = previous_values{"SESolverM"}
-        MESolver.solver_options['method'] = previous_values{"MESolverM"}
-        MCSolver.solver_options['method'] = previous_values{"MCSolverM"}
-        SESolver._resultclass = previous_values{"SESolverR"}
-        MESolver._resultclass = previous_values{"MESolverR"}
-        MCSolver._trajectory_resultclass = previous_values{"MCSolverR"}
-        MCSolver._mc_integrator_class = previous_values{"MCSolverI"}
+        settings.core["default_dtype"] = self.previous_values["default_dtype"]
+        settings.core['numpy_backend'] = self.previous_values["numpy_backend"]
+        settings.core["auto_real_casting"] = self.previous_values["auto_real"]
+        SESolver.solver_options['method'] = self.previous_values["SESolverM"]
+        MESolver.solver_options['method'] = self.previous_values["MESolverM"]
+        MCSolver.solver_options['method'] = self.previous_values["MCSolverM"]
+        SESolver._resultclass = self.previous_values["SESolverR"]
+        MESolver._resultclass = self.previous_values["MESolverR"]
+        MCSolver._trajectory_resultclass = self.previous_values["MCSolverR"]
+        MCSolver._mc_integrator_class = self.previous_values["MCSolverI"]
 
 
 
