@@ -10,11 +10,12 @@ import cupy as cp
 
 cudense = pytest.importorskip("cuquantum.densitymat")
 
-from qutip_cuquantum.operator import CuOperator
+from qutip_cuquantum.operator import CuOperator, ProdTerm, Term
+from qutip_cuquantum.utils import Transform
 from qutip_cuquantum.state import CuState
 from qutip_cuquantum.mixed_dispatch import matmul_cuoperator_custate_custate
 import qutip_cuquantum
-cudm_ctx = cu_dense.WorkStream()
+cudm_ctx = cudense.WorkStream()
 qutip_cuquantum.set_as_default(cudm_ctx)
 
 
@@ -137,16 +138,16 @@ test_tools._RANDOM = {
 
 _compatible_hilbert = [
     (pytest.param((2,), id="single"), pytest.param((2, True), id="single")),
-    (pytest.param((2, 3), id="double"), pytest.param((2, 3, False), id="double")),
-    (pytest.param((-6), id="double"), pytest.param((2, 3, True), id="single_weak")),
-    (pytest.param((2, -4), id="double_weak"), pytest.param((2, 2, 2, False), id="double_weak")),
-    (pytest.param((2, 2, 2), id="complex"), pytest.param((2, 2, 2, True), id="complex")),
+    (pytest.param((2, 3), id="double"), pytest.param((2, 3, False), id="2-ket")),
+    (pytest.param((-6,), id="single_weak"), pytest.param((2, 3, True), id="2-dm")),
+    (pytest.param((2, -4), id="double_weak"), pytest.param((2, 2, 2, False), id="3-ket")),
+    (pytest.param((2, 2, 2), id="triple"), pytest.param((2, 2, 2, True), id="3-dm")),
 ]
 
 _imcompatible_hilbert = [
-    (pytest.param((2,), id="single"), pytest.param((3, False), id="single")),
-    (pytest.param((2, 3), id="double"), pytest.param((6, False), id="single")),
-    (pytest.param((2, 3), id="double"), pytest.param((3, 2, False), id="single_weak")),
+    (pytest.param((2,), id="single"), pytest.param((3, False), id="different")),
+    (pytest.param((2, 3), id="double"), pytest.param((6, False), id="merged")),
+    (pytest.param((2, 3), id="double"), pytest.param((3, 2, False), id="inverted")),
     (pytest.param((2, -4), id="double_weak"), pytest.param((4, 2, False), id="double_weak")),
     (pytest.param((2, 3, -4), id="complex"), pytest.param((6, 2, 2, False), id="complex")),
 ]
