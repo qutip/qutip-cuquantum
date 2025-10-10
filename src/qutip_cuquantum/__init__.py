@@ -27,6 +27,7 @@ import qutip
 from qutip.core.options import QutipOptions
 from .operator import CuOperator
 from .state import CuState
+import numpy
 
 
 # TODO: The split per density is not great
@@ -62,6 +63,9 @@ except ImportError:
 
 from .qobjevo import CuQobjEvo
 from .ode import Result, CuMCIntegrator
+from qutip import settings
+from qutip.solver import SESolver, MESolver, McSolver, Result as BaseResult
+from qutip.solver.mcsolve import MCIntegrator
 
 
 class cuDensityOption(QutipOptions):
@@ -74,7 +78,7 @@ cuDensityOption_instance = cuDensityOption()
 cuDensityOption_instance._set_as_global_default()
 
 
-def set_as_default(ctx: cuquantum.densitymat.WorkStream):
+def set_as_default(ctx: cuquantum.densitymat.WorkStream=None, reverse=False):
     """
     Update qutip's default to use cuQuantum as a backend.
 
@@ -83,22 +87,97 @@ def set_as_default(ctx: cuquantum.densitymat.WorkStream):
     ctx: WorkStream
         A WorkStream instance from cuquantum.density.
         It can be set with mpi support for multi-gpu simulations.
+        Can be ignored when ``reverse=True``.
+
+    reverse: bool, default: False
+        Undo the change of default backend to qutip core defaults.
     """
-    qutip.settings.cuDensity["ctx"] = ctx
-    qutip.settings.core["default_dtype"] = "cuDensity"
-    qutip.settings.core['numpy_backend'] = cupy
+    if not reverse:
+        settings.cuDensity["ctx"] = ctx
+        settings.core["default_dtype"] = "cuDensity"
+        settings.core['numpy_backend'] = cupy
 
-    if True:  # if mpi, how to check from ctx?
-        qutip.settings.core["auto_real_casting"] = False
+        if True:  # if mpi, how to check from ctx?
+            settings.core["auto_real_casting"] = False
 
-    qutip.SESolver.solver_options['method'] = "CuVern7"
-    qutip.MESolver.solver_options['method'] = "CuVern7"
-    qutip.MCSolver.solver_options['method'] = "CuVern7"
+        SESolver.solver_options['method'] = "CuVern7"
+        MESolver.solver_options['method'] = "CuVern7"
+        MCSolver.solver_options['method'] = "CuVern7"
 
-    qutip.SESolver._resultclass = Result
-    qutip.MESolver._resultclass = Result
-    qutip.MCSolver._trajectory_resultclass = Result
-    qutip.MCSolver._mc_integrator_class = CuMCIntegrator
+        SESolver._resultclass = Result
+        MESolver._resultclass = Result
+        MCSolver._trajectory_resultclass = Result
+        MCSolver._mc_integrator_class = CuMCIntegrator
+
+    else:
+        settings.core["default_dtype"] = "core"
+        settings.core['numpy_backend'] = numpy
+        settings.core["auto_real_casting"] = True
+
+        SESolver.solver_options['method'] = "adams"
+        MESolver.solver_options['method'] = "adams"
+        MCSolver.solver_options['method'] = "vern7"
+
+        SESolver._resultclass = BaseResult
+        MESolver._resultclass = BaseResult
+        MCSolver._trajectory_resultclass = BaseResult
+        MCSolver._mc_integrator_class = MCIntegrator
+
+
+
+class CuQuantumBackend:
+    """
+    A context manager class to temporarily set cuQuantum as the default
+    backend.
+
+    Parameters
+    ----------
+    ctx : cuquantum.densitymat.WorkStream
+        A WorkStream instance from cuquantum.density.
+        It can be set with mpi support for multi-gpu simulations.
+    """
+    def __init__(self, ctx):
+        self.ctx = ctx
+        previous_values = {}
+
+    def __enter__(self, ctx):
+        settings.cuDensity["ctx"] = self.ctx
+        previous_values{"default_dtype"} = qutip.settings.core["default_dtype"]
+        settings.core["default_dtype"] = "cuDensity"
+        previous_values{"numpy_backend"} = qutip.settings.core["numpy_backend"]
+        settings.core['numpy_backend'] = cupy
+
+        previous_values{"auto_real"} = settings.core["auto_real_casting"]
+        if True:  # if mpi, how to check from ctx?
+            settings.core["auto_real_casting"] = False
+
+        previous_values{"SESolverM"} = SESolver.solver_options['method']
+        previous_values{"MESolverM"} = MESolver.solver_options['method']
+        previous_values{"MCSolverM"} = MCSolver.solver_options['method']
+        SESolver.solver_options['method'] = "CuVern7"
+        MESolver.solver_options['method'] = "CuVern7"
+        MCSolver.solver_options['method'] = "CuVern7"
+
+        previous_values{"SESolverR"} = MCSolver._resultclass
+        previous_values{"MESolverR"} = MCSolver._resultclass
+        previous_values{"MCSolverR"} = MCSolver._trajectory_resultclass
+        previous_values{"MCSolverI"} = MCSolver._mc_integrator_class
+        SESolver._resultclass = Result
+        MESolver._resultclass = Result
+        MCSolver._trajectory_resultclass = Result
+        MCSolver._mc_integrator_class = CuMCIntegrator
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        settings.core["default_dtype"] = previous_values{"default_dtype"}
+        settings.core['numpy_backend'] = previous_values{"numpy_backend"}
+        settings.core["auto_real_casting"] = previous_values{"auto_real"}
+        SESolver.solver_options['method'] = previous_values{"SESolverM"}
+        MESolver.solver_options['method'] = previous_values{"MESolverM"}
+        MCSolver.solver_options['method'] = previous_values{"MCSolverM"}
+        SESolver._resultclass = previous_values{"SESolverR"}
+        MESolver._resultclass = previous_values{"MESolverR"}
+        MCSolver._trajectory_resultclass = previous_values{"MCSolverR"}
+        MCSolver._mc_integrator_class = previous_values{"MCSolverI"}
 
 
 
