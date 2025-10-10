@@ -121,7 +121,7 @@ test_tools._RANDOM = {
 }
 
 _compatible_hilbert = [
-    (pytest.param((2,), id="single"), pytest.param((2,, True), id="single")),
+    (pytest.param((2,), id="single"), pytest.param((2, True), id="single")),
     (pytest.param((2, 3), id="double"), pytest.param((2, 3, False), id="double")),
     (pytest.param((-6), id="double"), pytest.param((2, 3, True), id="single_weak")),
     (pytest.param((2, -4), id="double_weak"), pytest.param((2, 2, 2, False), id="double_weak")),
