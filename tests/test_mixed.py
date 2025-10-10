@@ -1,12 +1,22 @@
-from qutip_cuquantum.operator import CuOperator
-from qutip_cuquantum.state import CuState
-from qutip_cuquantum.mixed_dispatch import matmul_cuoperator_custate_custate
 import qutip.core.data as _data
 import qutip.tests.core.data.test_mathematics as test_tools
 from qutip.tests.core.data.conftest import (
     random_csr, random_dense, random_diag
 )
 import pytest
+import random
+import numpy as np
+import cupy as cp
+
+cudense = pytest.importorskip("cuquantum.densitymat")
+
+from qutip_cuquantum.operator import CuOperator
+from qutip_cuquantum.state import CuState
+from qutip_cuquantum.mixed_dispatch import matmul_cuoperator_custate_custate
+import qutip_cuquantum
+cudm_ctx = cu_dense.WorkStream()
+qutip_cuquantum.set_as_default(cudm_ctx)
+
 
 def _rand_transform(gen):
     """
@@ -93,7 +103,7 @@ def random_pure_custate(hilbert):
     out = (
         np.random.rand(N, 1) + 1j * np.random.rand(N, 1)
     ).astype(cp.complex128)
-    out = qutip.core.data.Dense(out)
+    out = _data.Dense(out)
     return CuState(out, hilbert, copy=False)
 
 
@@ -103,7 +113,7 @@ def random_mixed_custate(hilbert):
     out = (
         np.random.rand(N, N) + 1j * np.random.rand(N, N)
     ).astype(cp.complex128)
-    out = qutip.core.data.Dense(out)
+    out = _data.Dense(out)
     return CuState(out, hilbert, copy=False)
 
 
