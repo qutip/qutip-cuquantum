@@ -1,7 +1,11 @@
 from qutip_cuquantum.operator import CuOperator
 from qutip_cuquantum.state import CuState
 from qutip_cuquantum.mixed_dispatch import matmul_cuoperator_custate_custate
-
+import qutip.core.data as _data
+import qutip.tests.core.data.test_mathematics as test_tools
+from qutip.tests.core.data.conftest import (
+    random_csr, random_dense, random_diag
+)
 
 def _rand_transform(gen):
     """
