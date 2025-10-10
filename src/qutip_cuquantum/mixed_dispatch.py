@@ -9,13 +9,13 @@ from cuquantum.densitymat import Operator
 
 @_data.matmul.register(CuOperator, CuState, CuState)
 def matmul_cuoperator_custate_custate(left, right, scale=1., out=None):
-    merged_hilbert = _compare_hilbert(left.hilbert_space_dims, right.right.base.hilbert_space_dims)
+    merged_hilbert = _compare_hilbert(left.hilbert_dims, right.base.hilbert_space_dims)
+    if not merged_hilbert:
+        raise ValueError("Hilbert space missmatch")
     if left.shape[1] == right.shape[0]:
         dual = False
     elif left.shape[1] == right.shape[0] * right.shape[1]:
         dual = True
-    elif not merged_hilbert:
-        raise ValueError("Hilbert space missmatch")
     else:
         raise ValueError("Shape missmatch")
 
