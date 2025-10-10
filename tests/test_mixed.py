@@ -6,6 +6,7 @@ import qutip.tests.core.data.test_mathematics as test_tools
 from qutip.tests.core.data.conftest import (
     random_csr, random_dense, random_diag
 )
+import pytest
 
 def _rand_transform(gen):
     """
