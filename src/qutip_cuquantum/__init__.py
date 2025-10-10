@@ -158,8 +158,8 @@ class CuQuantumBackend:
         MESolver.solver_options['method'] = "CuVern7"
         MCSolver.solver_options['method'] = "CuVern7"
 
-        self.previous_values["SESolverR"] = MCSolver._resultclass
-        self.previous_values["MESolverR"] = MCSolver._resultclass
+        self.previous_values["SESolverR"] = SESolver._resultclass
+        self.previous_values["MESolverR"] = MESolver._resultclass
         self.previous_values["MCSolverR"] = MCSolver._trajectory_resultclass
         self.previous_values["MCSolverI"] = MCSolver._mc_integrator_class
         SESolver._resultclass = Result
