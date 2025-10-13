@@ -607,7 +607,7 @@ class CuOperator(Data):
                         )
                         # Inverted order confirmed by nvidia
                         cuterm = cuterm * tensor_product(
-                            (oper, pterm.hilbert, (True,))
+                            (oper, pterm.hilbert, (True,) * len(pterm.hilbert))
                         )
 
                     elif any(i < N_hilbert for i in pterm.hilbert):
