@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 from cuquantum.densitymat import (
     MultidiagonalOperator,
     DenseOperator,
@@ -36,11 +40,11 @@ def _transpose_cu_operator(oper):
     elif isinstance(oper, DenseOperator):
         N = oper.num_modes
         batch_dims_oper = len(oper.data.shape) % 2
-        batch_dims_callback = len(oper.callback.callback(0, None).shape) % 2
         perm = tuple(range(N, 2*N)) + tuple(range(N))
         new_callback = None
 
         if oper.callback is not None:
+            batch_dims_callback = len(oper.callback.callback(0, None).shape) % 2
             perm_callback = perm
             if batch_dims_callback:
                 perm_callback += (2 * N,)
@@ -65,6 +69,43 @@ def _transpose_cu_operator(oper):
 
     return out
 
+def _transpose_cu_operator_duals(oper, duals):
+    if isinstance(oper, DenseOperator):
+        N = oper.num_modes
+        assert(len(duals) == N)
+        batch_dims_oper = len(oper.data.shape) % 2
+        perm = list(range(0, 2*N))
+        for i, is_dual in enumerate(duals):
+            if(is_dual):
+                perm[i], perm[N+i] = perm[N+i], perm[i]
+        perm = tuple(perm)
+        new_callback = None
+
+        if oper.callback is not None:
+            batch_dims_callback = len(oper.callback.callback(0, None).shape) % 2
+            perm_callback = perm
+            if batch_dims_callback:
+                perm_callback += (2 * N,)
+
+            @oper.callback.__class__
+            def new_callback(t, _):
+                # TODO: copy needed?
+                return (
+                    oper.callback.callback(t, _)
+                    .transpose(perm_callback)
+                    .copy(order="F")
+                )
+
+        if batch_dims_oper:
+            perm += (2 * N,)
+        out = DenseOperator(
+            oper.data.transpose(perm).copy(order="F"),
+            callback=new_callback
+        )
+    else:
+        raise NotImplementedError
+
+    return out
 
 def _oper_to_array(oper, transform):
     if isinstance(oper, _data.Data):
@@ -570,11 +611,21 @@ class CuOperator(Data):
                         )
 
                     elif any(i < N_hilbert for i in pterm.hilbert):
-                        raise NotImplementedError(
-                            "Operators acting on both original and "
-                            "dual spaces are not supported."
+                        assert pterm.transform == Transform.DIRECT
+                        oper = _oper_to_ElementaryOperator(
+                            pterm.operator,
+                            pterm.hilbert,
+                            self.hilbert_space_dims,
+                            pterm.transform,
+                            copy
                         )
-
+                        modes = tuple(i  if i < N_hilbert else i - N_hilbert for i in pterm.hilbert)
+                        duals = tuple(True  if i < N_hilbert else False for i in pterm.hilbert)
+                        #We need to transpose dual dimensions
+                        oper = _transpose_cu_operator_duals(oper, duals)
+                        cuterm = cuterm * tensor_product(
+                            (oper, modes, duals)
+                        )
                     else:
                         oper = _oper_to_ElementaryOperator(
                             pterm.operator,
