@@ -27,15 +27,15 @@ def _rand_transform(gen):
 
 
 def _rand_elementary_oper(size, gen):
-    if gen.uniform() < 0.5:
+    if gen.uniform() < 0.5 and size > 0:
         # 50% Dia format
         mat = random_diag((size, size), gen.uniform()*0.4, False, gen)
     elif gen.uniform() < 0.6:
         # 30% Dense format
-        mat = random_dense((size, size), gen.uniform() > 0.5, gen)
+        mat = random_dense((abs(size), abs(size)), gen.uniform() > 0.5, gen)
     else:
         # 20% CSR format (not fully supported, converted to dense eventually)
-        mat = random_csr((size, size), gen.uniform()*0.4, False, gen)
+        mat = random_csr((abs(size), abs(size)), gen.uniform()*0.4, False, gen)
 
     if gen.uniform() < 0.5:
         # Use cuDensity format instead of qutip.
@@ -68,7 +68,7 @@ def random_CuOperator(hilbert_dims, N_elementary, seed):
         term = Term([], generator.normal() + 1j * generator.normal())
         for _ in range(N):
             mode = np.random.randint(len(hilbert_dims))
-            size = abs(hilbert_dims[mode])
+            size = hilbert_dims[mode]
             oper = _rand_elementary_oper(size, generator)
 
             term.prod_terms.append(ProdTerm(oper, (mode,), _rand_transform(generator)))
