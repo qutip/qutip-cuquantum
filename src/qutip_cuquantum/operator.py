@@ -44,7 +44,7 @@ def _transpose_cu_operator(oper):
             perm_callback = perm
             if batch_dims_callback:
                 perm_callback += (2 * N,)
-                
+
             @oper.callback.__class__
             def new_callback(t, _):
                 # TODO: copy needed?
@@ -722,6 +722,15 @@ def isequal_CuOperator(left, right, atol=-1, rtol=-1):
     return np.allclose(left.to_array(), right.to_array(), rtol, atol)
 
 
+@_data.isherm.register(CuOperator)
+def isherm(operator, tol=None):
+    if operator.shape[0] != operator.shape[1]:
+        return False
+    # TODO: Ideally we should check simple case without merging.
+    oper = operator.to_array()
+    if tol < 0:
+        tol = settings.core["atol"]
+    return cp.allclose(oper, oper.T.conj(), atol=tol)
 ###############################################################################
 ###############################################################################
 

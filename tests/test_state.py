@@ -71,15 +71,15 @@ _unary_mixed = [
 
 _compatible_hilbert = [
     (
-        pytest.param((2, True), id="simple ket"), 
+        pytest.param((2, True), id="simple ket"),
          pytest.param((2, True), id="simple ket"),
     ),
     (
-        pytest.param((2, 3, True), id="2 hilbert ket"), 
+        pytest.param((2, 3, True), id="2 hilbert ket"),
         pytest.param((2, 3, True), id="weak ket"),
     ),
     (
-        pytest.param((2, 2, 2, 3, True), id="complex ket"), 
+        pytest.param((2, 2, 2, 3, True), id="complex ket"),
         pytest.param((2, 2, 2, 3, True), id="complex ket"),
     ),
     (
@@ -110,19 +110,19 @@ _kron_hilbert = [
         pytest.param((2, True), id="simple ket"),
         pytest.param((3, True), id="simple ket"),),
     (
-        pytest.param((2, 3, True), id="2 hilbert ket"), 
+        pytest.param((2, 3, True), id="2 hilbert ket"),
         pytest.param((2, True), id="simple ket"),),
     (
-        pytest.param((2, 4, 3, True), id="complex ket"), 
+        pytest.param((2, 4, 3, True), id="complex ket"),
         pytest.param((4, 6, True), id="complex ket"),),
     (
-        pytest.param((2, False), id="simple dm"), 
+        pytest.param((2, False), id="simple dm"),
         pytest.param((2, 3, False), id="2 hilbert dm"),),
     (
-        pytest.param((2, 3, 2, False), id="3 hilbert dm"), 
+        pytest.param((2, 3, 2, False), id="3 hilbert dm"),
         pytest.param((2, 6, False), id="2 hilbert dm"),),
     (
-        pytest.param((2, 3, 4, False), id="complex dm"), 
+        pytest.param((2, 3, 4, False), id="complex dm"),
         pytest.param((2, 6, 2, False), id="complex dm"),
     ),
 ]
@@ -182,3 +182,12 @@ class TestInner(test_tools.TestInner):
 
     shapes = [(hilbert[0], hilbert[0]) for hilbert in _unary_pure]
     bad_shapes = []
+
+
+def test_isherm():
+    A = qutip.basis(3, dtype="CuState")
+    assert _data.isherm(A.data) is False
+    B = qutip.rand_dm(3, dtype="CuState")
+    assert _data.isherm(B.data)
+    C = qutip.rand_stochastic(5, density=1) @ qutip.rand_dm(5, density=1)
+    assert _data.isherm(B.to("CuState").data) is False

@@ -312,7 +312,7 @@ class TestIsEqual:
         ((2, -4), (-4, 2)),
         ((2, 3, -4), (-6, 2, 2)),
     ]
-    
+
     _imcompatible_hilbert = [
         ((2,), (2,)),
         ((2, 3), (3, 2)),
@@ -320,7 +320,7 @@ class TestIsEqual:
         ((2, -4), (4, -2)),
         ((2, 3, -4), (6, 2, 2)),
     ]
-    
+
     def op_numpy(self, left, right, atol, rtol):
         return np.allclose(left.to_array(), right.to_array(), rtol, atol)
 
@@ -356,4 +356,16 @@ class TestIsEqual:
         B = random_CuOperator(hilbert[1], [2], 321)
         assert _data.isequal(A, A + B * (atol / 10), atol, 0)
         assert not _data.isequal(A, A + B * (atol * 10), atol, 0)
-    
+
+
+def test_isherm():
+    A = qutip.rand_dm(3, dtype="CuOperator")
+    B = qutip.rand_dm(4, dtype="CuOperator")
+    assert _data.isherm(A.data)
+    assert _data.isherm(B.data)
+    assert _data.isherm(((A & qutip.qeye(4)) + (qutip.qeye(3) & B)).data)
+    assert _data.isherm(((A & qutip.qeye(4)) * (qutip.qeye(3) & B)).data)
+    C = qutip.rand_stochastic(3, density=1, dtype="CuOperator")
+    assert _data.isherm(C) is False
+    assert _data.isherm((A @ C).data) is False
+    assert _data.isherm(((C & qutip.qeye(4)) * (qutip.qeye(3) & B)).data) is False
