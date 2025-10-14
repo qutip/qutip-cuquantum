@@ -190,4 +190,4 @@ def test_isherm():
     B = qutip.rand_dm(3, dtype="CuState")
     assert _data.isherm(B.data)
     C = qutip.rand_stochastic(5, density=1) @ qutip.rand_dm(5, density=1)
-    assert _data.isherm(B.to("CuState").data) is False
+    assert _data.isherm(C.to("CuState").data) is False

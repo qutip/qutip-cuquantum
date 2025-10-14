@@ -723,7 +723,7 @@ def isequal_CuOperator(left, right, atol=-1, rtol=-1):
 
 
 @_data.isherm.register(CuOperator)
-def isherm(operator, tol=None):
+def isherm(operator, tol=-1):
     if operator.shape[0] != operator.shape[1]:
         return False
     # TODO: Ideally we should check simple case without merging.
