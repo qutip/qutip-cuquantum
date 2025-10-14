@@ -366,6 +366,6 @@ def test_isherm():
     assert _data.isherm(((A & qutip.qeye(4)) + (qutip.qeye(3) & B)).data)
     assert _data.isherm(((A & qutip.qeye(4)) * (qutip.qeye(3) & B)).data)
     C = qutip.rand_stochastic(3, density=1, dtype="CuOperator")
-    assert _data.isherm(C) is False
-    assert _data.isherm((A @ C).data) is False
-    assert _data.isherm(((C & qutip.qeye(4)) * (qutip.qeye(3) & B)).data) is False
+    assert _data.isherm(C.data) == False
+    assert _data.isherm((A @ C).data) == False
+    assert _data.isherm(((C & qutip.qeye(4)) * (qutip.qeye(3) & B)).data) == False
