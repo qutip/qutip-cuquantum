@@ -37,7 +37,7 @@ def _rand_elementary_oper(size, gen):
         # 20% CSR format (not fully supported, converted to dense eventually)
         mat = random_csr((abs(size), abs(size)), gen.uniform()*0.4, False, gen)
 
-    if gen.uniform() < 0.5:
+    if gen.uniform() < 0.5 and size > 0:
         # Use cuDensity format instead of qutip.
         array_type = np if gen.uniform() < 0.5 else cp
         if isinstance(mat, _data.Dia):
