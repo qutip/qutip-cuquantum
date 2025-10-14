@@ -169,7 +169,10 @@ class CuState(Data):
         return self * (1 / other)
 
     def conj(self):
-        raise NotImplementedError()
+        return CuState(
+            self.base.clone(cp.array(self.base.storage.conj(), copy=False)),
+            shape=self.shape
+        )
 
     def transpose(self):
         raise NotImplementedError()

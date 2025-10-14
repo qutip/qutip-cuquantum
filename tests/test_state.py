@@ -191,3 +191,10 @@ def test_isherm():
     assert _data.isherm(B.data)
     C = qutip.rand_stochastic(5, density=1) @ qutip.rand_dm(5, density=1)
     assert _data.isherm(C.to("CuState").data) == False
+
+
+def test_conj():
+    A = (qutip.basis(3, dtype="CuState") * 0.5j).data
+    assert abs(frobenius_cuState(A - A.conj()) - 1.) < 1e-10
+    B = (qutip.basis(3, dtype="CuState")).data
+    assert abs(frobenius_cuState(B - B.conj())) < 1e-10
