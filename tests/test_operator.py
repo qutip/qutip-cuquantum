@@ -59,7 +59,6 @@ def random_CuOperator(hilbert_dims, N_elementary, seed):
     Generate a random `CuOperator` matrix with the given hilbert_dims.
     """
     generator = np.random.default_rng(seed)
-    print(hilbert_dims)
     out = CuOperator(hilbert_dims=hilbert_dims)
     for N in N_elementary:
         term = Term([], generator.normal() + 1j * generator.normal())
@@ -112,7 +111,6 @@ _unary_hilbert = [
     (pytest.param((2, 3, -4), id="complex"),),
 ]
 
-
 _compatible_hilbert = [
     (pytest.param((2,), id="single"), pytest.param((2,), id="single")),
     (pytest.param((2, 3), id="double"), pytest.param((2, 3), id="double")),
@@ -120,7 +118,6 @@ _compatible_hilbert = [
     (pytest.param((2, -4), id="double_weak"), pytest.param((-4, 2), id="double_weak")),
     (pytest.param((2, 3, -4), id="complex"), pytest.param((-6, 2, 2), id="complex")),
 ]
-
 
 _imcompatible_hilbert = [
     (pytest.param((2,), id="single"), pytest.param((3,), id="single")),
@@ -312,7 +309,7 @@ class TestIsEqual:
         ((2, -4), (-4, 2)),
         ((2, 3, -4), (-6, 2, 2)),
     ]
-    
+
     _imcompatible_hilbert = [
         ((2,), (2,)),
         ((2, 3), (3, 2)),
@@ -320,7 +317,7 @@ class TestIsEqual:
         ((2, -4), (4, -2)),
         ((2, 3, -4), (6, 2, 2)),
     ]
-    
+
     def op_numpy(self, left, right, atol, rtol):
         return np.allclose(left.to_array(), right.to_array(), rtol, atol)
 
@@ -356,4 +353,3 @@ class TestIsEqual:
         B = random_CuOperator(hilbert[1], [2], 321)
         assert _data.isequal(A, A + B * (atol / 10), atol, 0)
         assert not _data.isequal(A, A + B * (atol * 10), atol, 0)
-    

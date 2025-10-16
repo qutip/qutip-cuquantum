@@ -36,15 +36,15 @@ def _transpose_cu_operator(oper):
     elif isinstance(oper, DenseOperator):
         N = oper.num_modes
         batch_dims_oper = len(oper.data.shape) % 2
-        batch_dims_callback = len(oper.callback.callback(0, None).shape) % 2
         perm = tuple(range(N, 2*N)) + tuple(range(N))
         new_callback = None
 
         if oper.callback is not None:
+            batch_dims_callback = len(oper.callback.callback(0, None).shape) % 2
             perm_callback = perm
             if batch_dims_callback:
                 perm_callback += (2 * N,)
-                
+
             @oper.callback.__class__
             def new_callback(t, _):
                 # TODO: copy needed?
