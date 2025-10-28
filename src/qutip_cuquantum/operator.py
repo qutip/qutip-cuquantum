@@ -162,11 +162,11 @@ def _oper_to_ElementaryOperator(
             cu_oper = DenseOperator(oper.to_array().reshape(shape + shape))
 
     if any(transpose):
-        oper = _transpose_cu_operator(oper, transpose)
+        cu_oper = _transpose_cu_operator(cu_oper, transpose)
     if dag:
-        oper = oper.dag()
+        cu_oper = cu_oper.dag()
 
-    return out
+    return cu_oper
 
 
 ###############################################################################
@@ -554,11 +554,14 @@ class CuOperator(Data):
             for term in self.terms:
                 cuterm = tensor_product(dtype="complex128")
                 for pterm in term.prod_terms:
+                    transpose = pterm.transform in [Transform.TRANSPOSE, Transform.CONJ]
+                    dag = pterm.transform in [Transform.ADJOINT, Transform.CONJ]
                     oper = _oper_to_ElementaryOperator(
                         pterm.operator,
                         pterm.hilbert,
                         self.hilbert_space_dims,
-                        pterm.transform,
+                        [transpose] * len(pterm.hilbert),
+                        dag,
                         copy
                     )
                     # Inverted order confirmed by nvidia
@@ -569,7 +572,9 @@ class CuOperator(Data):
             N_hilbert = len(self.hilbert_dims) // 2
             # TODO: make this tests weak compare?
             if self.hilbert_dims[:N_hilbert] != self.hilbert_dims[N_hilbert:]:
-                raise ValueError("Hilbert space inconsistent with square superoperator.")
+                raise ValueError(
+                    f"Hilbert space inconsistent with square superoperator: {self.hilbert_dims}"
+                )
             for term in self.terms:
                 cuterm = tensor_product(dtype="complex128")
                 for pterm in term.prod_terms:
@@ -734,6 +739,22 @@ def isherm(operator, tol=-1):
     if tol < 0:
         tol = settings.core["atol"]
     return cp.allclose(oper, oper.T.conj(), atol=tol)
+
+
+@_data.identity_like.register(CuOperator)
+def identity_like(data, /):
+    """
+    Create an identity matrix of the same type and shape.
+    """
+    if not data.shape[0] == data.shape[1]:
+        raise ValueError(
+            "Can't create an identity matrix like a non square matrix."
+        )
+
+    new = CuOperator(hilbert_dims=data.hilbert_dims)
+    new.terms.append(Term([], 1.))
+    return new
+
 ###############################################################################
 ###############################################################################
 

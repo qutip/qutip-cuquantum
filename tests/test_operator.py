@@ -7,6 +7,7 @@ cudense = pytest.importorskip("cuquantum.densitymat")
 import qutip
 from qutip_cuquantum.operator import CuOperator, ProdTerm, Term
 from qutip_cuquantum.utils import Transform
+from qutip_cuquantum.state import zeros_like_cuState, CuState
 
 import qutip.core.data as _data
 import qutip.tests.core.data.test_mathematics as test_tools
@@ -337,7 +338,7 @@ class TestIsEqual:
     def test_different_shape(self, hilbert):
         A = random_CuOperator(hilbert[0], [1], 21)
         B = random_CuOperator(hilbert[1], [1], 12)
-        assert not _data.isequal(A, B, np.inf, np.inf)
+        assert not _data.isequal(A, B, 1e10, 1e10)
 
     @pytest.mark.parametrize("rtol", [1e-6, 100])
     @pytest.mark.parametrize("hilbert", _compatible_hilbert)
@@ -387,32 +388,51 @@ def _compare_Operator(operator, qobj, N=3):
     # compare directly.
     for _ in range(N):
         if qobj._dims.issuper:
-            state = qutip.rand_dm(qobj.dims[1][0], density=1., dtype="Dense")
+            dims = qobj.dims[1][0]
+            state = qutip.rand_dm(dims, density=1., dtype="Dense")
+            custate = CuState(state.data, hilbert_dims=dims)
         else:
-            state = qutip.rand_ket(qobj.dims[1], density=1., dtype="Dense")
+            dims = qobj.dims[1]
+            state = qutip.rand_ket(dims, density=1., dtype="Dense")
+            custate = CuState(state.data, hilbert_dims=dims)
+
+        assert state == qutip.Qobj(custate, dims=state.dims).to("dense")
+
+        print(qobj.dtype)
+        print(operator)
         expected = qobj(state)
-        state = state.to("CuState")
-        out = zeros_like_cuState(state)
-        OpTerm.compute_action(
-            0., None, state.data.base, out.data.base,
+
+        out = zeros_like_cuState(custate)
+        if _ == 0:
+            operator.prepare_action(
+                qutip.settings.cuDensity["ctx"],
+                custate.base,
+            )
+        operator.compute_action(
+            0., None, custate.base, out.base,
         )
-        obtained = out.to("dense")
+        obtained = qutip.Qobj(out, dims=state.dims).to("dense")
         assert expected == obtained
 
 
 class TestToOperatorTerm:
     ctx = cudense.WorkStream()
     qutip.settings.cuDensity["ctx"] = ctx
+    _terms_core = None
+    _terms_cu = None
 
-    def __init__(self):
-        id2 = qutip.qeye(2)
+    @property
+    def terms_core(self):
+        if self._terms_core is not None:
+            return self._terms_core
+        id2 = qutip.qeye(2, dtype="dia")
         a = qutip.destroy(2, dtype="dia")
         y = qutip.sigmay(dtype="csr")
-        x = qutip.sigmaz(dtype="dia"))
+        z = qutip.sigmaz(dtype="dia")
         op1 = qutip.rand_dm(2, density=1., dtype="Dense")
         op2 = qutip.rand_dm(2, density=1., dtype="Dense")
 
-        self.terms_core = (
+        self._terms_core = (
             (op1 @ op2) & id2 & id2,  # matmul before tensor
             (id2 & op1 & id2) @ (id2 & op2 & id2),  # matmul after tensor
             (id2 & op1 & id2) @ (id2 & id2 & op2),  # matmul diff mode
@@ -430,17 +450,29 @@ class TestToOperatorTerm:
             (y & z & op1).dag(),  # 3 modes 1 dag
             (op1 & y & op2),  # 3 modes 2
         )
+        return self._terms_core
+
+    @property
+    def terms_cu(self):
+        if self._terms_cu is not None:
+            return self._terms_cu
+
+        a = qutip.destroy(2, dtype="dia")
+        y = qutip.sigmay(dtype="csr")
+        z = qutip.sigmaz(dtype="dia")
+        op1 = qutip.rand_dm(2, density=1., dtype="Dense")
+        op2 = qutip.rand_dm(2, density=1., dtype="Dense")
 
         id2 = qutip.qeye(2, dtype=CuOperator)
         y_op2 = (y & op2).to(CuOperator)
         y_z_op1 = (y & z & op1).to(CuOperator)
         a = qutip.destroy(2, dtype="dia").to(CuOperator)
         y = qutip.sigmay(dtype="csr").to(CuOperator)
-        z = qutip.sigmaz(dtype="dia")).to(CuOperator)
+        z = qutip.sigmaz(dtype="dia").to(CuOperator)
         op1 = op1.to(CuOperator)
         op2 = op2.to(CuOperator)
 
-        self.terms_cu = (
+        self._terms_cu = (
             (op1 @ op2) & id2 & id2,  # matmul before tensor
             (id2 & op1 & id2) @ (id2 & op2 & id2),  # matmul after tensor
             (id2 & op1 & id2) @ (id2 & id2 & op2),  # matmul diff mode
@@ -458,19 +490,19 @@ class TestToOperatorTerm:
             (y_z_op1).dag(),  # 3 modes 1 dag
             (op1 & y_op2),  # 3 modes 2
         )
-
+        return self._terms_cu
 
     def test_dense_single(self, transform):
         op = qutip.rand_dm(4, density=1., dtype="Dense")
-        reference = qutip.qeye(3) & op & qutip.qeye(5)
+        reference = qutip.qeye(3, dtype="dia") & op & qutip.qeye(5, dtype="dia")
         reference = getattr(reference, transform)()
         cuoper = (
             qutip.qeye(3, dtype=CuOperator)
             & op.to(CuOperator)
             & qutip.qeye(5, dtype=CuOperator)
         )
-        cuoper = getattr(cuoper, cuoper)()
-        opterm = cupoer.to_OperatorTerm()
+        cuoper = getattr(cuoper, transform)()
+        opterm = cuoper.data.to_OperatorTerm()
         oper = cudense.Operator([3, 4, 5], [opterm])
         _compare_Operator(oper, reference)
 
@@ -500,35 +532,37 @@ class TestToOperatorTerm:
             + (id3 & op2 & id5) @ (id3 & op3 & id5)
             + (id3 & op3 & op4.dag())
         )
-        opterm = cupoer.to_OperatorTerm()
+        opterm = cuoper.data.to_OperatorTerm()
         oper = cudense.Operator([3, 4, 5], [opterm])
         _compare_Operator(oper, reference)
 
-    @pytest.marks.parametrize("term", range(14))
+    @pytest.mark.parametrize("term", range(14))
     def test_multi2(self, term):
         reference = self.terms_core[term]
-        cupoer = self.terms_cu[term]
-        opterm = cupoer.to_OperatorTerm(dual=False)
+        cuoper = self.terms_cu[term]
+        opterm = cuoper.data.to_OperatorTerm(dual=False)
         oper = cudense.Operator([2, 2, 2], [opterm])
         _compare_Operator(oper, reference)
 
     def test_dense_pre(self, transform):
         op = qutip.rand_dm(4, density=1.,dtype="Dense")
-        reference = qutip.qeye(3) & op & qutip.qeye(5)
+        reference = qutip.qeye(3, dtype="dia") & op & qutip.qeye(5, dtype="dia")
         reference = getattr(reference, transform)()
+        reference = qutip.spre(reference)
         cuoper = (
             qutip.qeye(3, dtype=CuOperator)
             & op.to(CuOperator)
             & qutip.qeye(5, dtype=CuOperator)
         )
-        cuoper = getattr(cuoper, cuoper)()
-        opterm = cupoer.to_OperatorTerm(dual=True)
+        cuoper = getattr(cuoper, transform)()
+        cuoper = qutip.spre(cuoper)
+        opterm = cuoper.data.to_OperatorTerm(dual=True)
         oper = cudense.Operator([3, 4, 5], [opterm])
         _compare_Operator(oper, reference)
 
     def test_dense_dual(self, transform):
         op = qutip.rand_dm(4, density=1.,dtype="Dense")
-        reference = qutip.qeye(3) & op & qutip.qeye(5)
+        reference = qutip.qeye(3, dtype="dia") & op & qutip.qeye(5, dtype="dia")
         reference = getattr(reference, transform)()
         reference = qutip.spost(reference)
         cuoper = (
@@ -536,16 +570,16 @@ class TestToOperatorTerm:
             & op.to(CuOperator)
             & qutip.qeye(5, dtype=CuOperator)
         )
-        cuoper = getattr(cuoper, cuoper)()
+        cuoper = getattr(cuoper, transform)()
         cuoper = qutip.spost(cuoper)
-        opterm = cupoer.to_OperatorTerm(dual=True)
+        opterm = cuoper.data.to_OperatorTerm(dual=True)
         oper = cudense.Operator([3, 4, 5], [opterm])
         _compare_Operator(oper, reference)
 
     def test_dense_mix(self):
         opl = qutip.rand_dm(2, density=1.,dtype="Dense")
         opr = qutip.rand_dm(2, density=1.,dtype="Dense")
-        id2 = qutip.qeye(2)
+        id2 = qutip.qeye(2, dtype="dia")
         reference = qutip.sprepost(id2 & opl & id2, id2 & opr & id2)
 
         cuoper = qutip.Qobj(CuOperator(
@@ -554,14 +588,14 @@ class TestToOperatorTerm:
             hilbert_dims=[2, 2, 2, 2, 2, 2]
         ))
 
-        opterm = cupoer.to_OperatorTerm(dual=True)
+        opterm = cuoper.data.to_OperatorTerm(dual=True)
         oper = cudense.Operator([2, 2, 2], [opterm])
         _compare_Operator(oper, reference)
 
     def test_dense_mix2(self):
         opl = qutip.rand_dm([2, 2], density=1.,dtype="Dense")
         opr = qutip.rand_dm([2, 2], density=1.,dtype="Dense")
-        id2 = qutip.qeye(2)
+        id2 = qutip.qeye(2, dtype="dia")
         reference = qutip.sprepost(id2 & opl, id2 & opr)
 
         cuoper = qutip.Qobj(CuOperator(
@@ -570,20 +604,20 @@ class TestToOperatorTerm:
             hilbert_dims=[2, 2, 2, 2, 2, 2]
         ))
 
-        opterm = cupoer.to_OperatorTerm(dual=True)
+        opterm = cuoper.data.to_OperatorTerm(dual=True)
         oper = cudense.Operator([2, 2, 2], [opterm])
         _compare_Operator(oper, reference)
 
-    @pytest.marks.parametrize("term", range(14))
+    @pytest.mark.parametrize("term", range(14))
     def test_dense_complex(self, term):
         reference = (
             qutip.spre(self.terms_core[term])
             @ qutip.spost(self.terms_core[term])
         )
-        cupoer = (
+        cuoper = (
             qutip.spre(self.terms_cu[term])
             @ qutip.spost(self.terms_cu[term])
         )
-        opterm = cupoer.to_OperatorTerm(dual=True)
+        opterm = cuoper.data.to_OperatorTerm(dual=True)
         oper = cudense.Operator([2, 2, 2], [opterm])
         _compare_Operator(oper, reference)

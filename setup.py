@@ -9,6 +9,7 @@ import packaging.version
 import setuptools
 from Cython.Build import cythonize
 import qutip
+import qutip.core.cy as qutip_cc
 import numpy
 
 
@@ -94,7 +95,9 @@ def get_ext_modules(options):
     pyx_file = os.path.join("src", "qutip_cuquantum", "qobjevo.pyx")
     include_dirs = [
         numpy.get_include(),
-        os.path.abspath(os.path.join(qutip.core.data.__file__, os.pardir))
+        os.path.abspath(os.path.join(qutip.core.data.__file__, os.pardir)),
+        os.path.abspath(os.path.join(qutip_cc.__file__, os.pardir)),
+        os.path.abspath(os.path.join(qutip.__file__, os.pardir))
     ]
     print("*********************************************************************************")
     print(include_dirs)
@@ -107,7 +110,7 @@ def get_ext_modules(options):
         language="c++",
     )
 
-    return cythonize(ext)
+    return cythonize(ext, include_path=include_dirs)
 
 
 if __name__ == "__main__":
