@@ -398,8 +398,6 @@ def _compare_Operator(operator, qobj, N=3):
 
         assert state == qutip.Qobj(custate, dims=state.dims).to("dense")
 
-        print(qobj.dtype)
-        print(operator)
         expected = qobj(state)
 
         out = zeros_like_cuState(custate)

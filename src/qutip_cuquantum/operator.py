@@ -159,7 +159,6 @@ def _oper_to_ElementaryOperator(
             cu_oper = MultidiagonalOperator(data, offsets)
 
         else:
-            print(shape, hilbert_dims, hilbert_idx)
             cu_oper = DenseOperator(oper.to_array().reshape(shape + shape))
 
     if any(transpose):
