@@ -312,7 +312,7 @@ class TestIsEqual:
     ]
 
     _imcompatible_hilbert = [
-        ((2,), (2,)),
+        ((2,), (3,)),
         ((2, 3), (3, 2)),
         ((2, 3), (6,)),
         ((2, -4), (4, -2)),
@@ -420,6 +420,8 @@ class TestToOperatorTerm:
     qutip.settings.cuDensity["ctx"] = ctx
     _terms_core = None
     _terms_cu = None
+    _op1 = None
+    _op2 = None
 
     @property
     def terms_core(self):
@@ -431,6 +433,8 @@ class TestToOperatorTerm:
         z = qutip.sigmaz(dtype="dia")
         op1 = qutip.rand_dm(2, density=1., dtype="Dense")
         op2 = qutip.rand_dm(2, density=1., dtype="Dense")
+        self._op1 = op1
+        self._op2 = op2
 
         self._terms_core = (
             (op1 @ op2) & id2 & id2,  # matmul before tensor
@@ -460,17 +464,15 @@ class TestToOperatorTerm:
         a = qutip.destroy(2, dtype="dia")
         y = qutip.sigmay(dtype="csr")
         z = qutip.sigmaz(dtype="dia")
-        op1 = qutip.rand_dm(2, density=1., dtype="Dense")
-        op2 = qutip.rand_dm(2, density=1., dtype="Dense")
 
         id2 = qutip.qeye(2, dtype=CuOperator)
-        y_op2 = (y & op2).to(CuOperator)
-        y_z_op1 = (y & z & op1).to(CuOperator)
+        y_op2 = (y & self._op2).to(CuOperator)
+        y_z_op1 = (y & z & self._op1).to(CuOperator)
         a = qutip.destroy(2, dtype="dia").to(CuOperator)
         y = qutip.sigmay(dtype="csr").to(CuOperator)
         z = qutip.sigmaz(dtype="dia").to(CuOperator)
-        op1 = op1.to(CuOperator)
-        op2 = op2.to(CuOperator)
+        op1 = self._op1.to(CuOperator)
+        op2 = self._op2.to(CuOperator)
 
         self._terms_cu = (
             (op1 @ op2) & id2 & id2,  # matmul before tensor
@@ -506,16 +508,16 @@ class TestToOperatorTerm:
         oper = cudense.Operator([3, 4, 5], [opterm])
         _compare_Operator(oper, reference)
 
-    def test_multi(self, term):
+    def test_multi(self):
         op1 = qutip.rand_dm(3, density=1., dtype="Dense")
         op2 = qutip.rand_dm(4, density=1., dtype="Dense")
-        op3 = qutip.destroy(4)
+        op3 = qutip.destroy(4, dtype="dia")
         op4 = qutip.rand_dm(5, density=1., dtype="Dense")
         reference = (
-            (op1.conj() & qutip.qeye(4) & qutip.qeye(5))
-            + (qutip.qeye(3) & op2.trans() & qutip.qeye(5))
-            + (qutip.qeye(3) & (op2 @ op3) & qutip.qeye(5))
-            + (qutip.qeye(3) & op3 & op4.dag())
+            (op1.conj() & qutip.qeye(4, dtype="dia") & qutip.qeye(5, dtype="dia"))
+            + (qutip.qeye(3, dtype="dia") & op2.trans() & qutip.qeye(5, dtype="dia"))
+            + (qutip.qeye(3, dtype="dia") & (op2 @ op3) & qutip.qeye(5, dtype="dia"))
+            + (qutip.qeye(3, dtype="dia") & op3 & op4.dag())
         )
 
         op1 = op1.to(CuOperator)
@@ -540,6 +542,7 @@ class TestToOperatorTerm:
     def test_multi2(self, term):
         reference = self.terms_core[term]
         cuoper = self.terms_cu[term]
+        cuoper.data._update_hilbert([2, 2, 2])
         opterm = cuoper.data.to_OperatorTerm(dual=False)
         oper = cudense.Operator([2, 2, 2], [opterm])
         _compare_Operator(oper, reference)
@@ -618,6 +621,7 @@ class TestToOperatorTerm:
             qutip.spre(self.terms_cu[term])
             @ qutip.spost(self.terms_cu[term])
         )
+        cuoper.data._update_hilbert([2, 2, 2, 2, 2, 2])
         opterm = cuoper.data.to_OperatorTerm(dual=True)
         oper = cudense.Operator([2, 2, 2], [opterm])
         _compare_Operator(oper, reference)
