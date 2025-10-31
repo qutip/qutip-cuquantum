@@ -40,7 +40,7 @@ class CuState(Data):
                 # TODO: Add sanity check for hilbert_dims
                 base = DenseMixedState(ctx, hilbert_dims, 1, "complex128")
                 sizes, offsets = base.local_info
-                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:1]
+                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
                 N = np.prod(sizes)
                 if len(arg._cp) == N:
                     base.attach_storage(cp.array(
@@ -60,7 +60,7 @@ class CuState(Data):
             else:
                 base = DensePureState(ctx, hilbert_dims, 1, "complex128")
                 sizes, offsets = base.local_info
-                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:1]
+                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
                 N = np.prod(sizes)
                 if len(arg._cp) == N:
                     base.attach_storage(cp.array(
@@ -100,7 +100,7 @@ class CuState(Data):
             else:
                 base = DensePureState(ctx, hilbert_dims, 1, "complex128")
                 sizes, offsets = base.local_info
-                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:1]
+                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
                 N = np.prod(sizes)
                 arr_np = arg.to_array().reshape(hilbert_dims)[sls].ravel("F")
                 base.allocate_storage()
@@ -248,6 +248,13 @@ def iadd_cuState(left, right, scale=1.):
 @_data.norm.frobenius.register(CuState)
 def frobenius_cuState(mat):
     return float(mat.base.norm())**0.5
+
+
+@_data.norm.l2.register(CuState)
+def l2_cuState(matrix):
+    if matrix.shape[0] != 1 and matrix.shape[1] != 1:
+        raise ValueError("L2 norm is only defined on vectors")
+    return frobenius_cuState(matrix)
 
 
 @_data.ode.wrmn_error.register(CuState)

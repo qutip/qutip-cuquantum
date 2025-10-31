@@ -8,7 +8,7 @@ cudense = pytest.importorskip("cuquantum.densitymat")
 
 import qutip
 from qutip_cuquantum.state import (
-    CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState,
+    CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState, l2_cuState,
     frobenius_cuState, trace_cuState, inner_cuState, wrmn_error_cuState
 )
 
@@ -173,6 +173,15 @@ class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
 
     shapes = _unary_pure + _unary_mixed
     bad_shapes = []
+
+
+class TestL2Norm(test_norm.TestL2Norm):
+    specialisations = [
+        pytest.param(l2_cuState, CuState, float),
+    ]
+
+    shapes = _unary_pure
+    bad_shapes = _unary_mixed
 
 
 class TestInner(test_tools.TestInner):
