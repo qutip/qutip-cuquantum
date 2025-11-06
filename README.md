@@ -30,13 +30,20 @@ see [nvidia's documentation](https://docs.nvidia.com/cuda/cuquantum/latest/getti
 
 ## Usage
 
-In simple case, simply calling `set_as_default` before a qutip script should be sufficient to use the backend common solver:
+In simple case, simply calling `set_as_default` before a qutip script should be sufficient to use the backend in common solver:
 
 ```
 import qutip_cuquantum
 from cuquantum.densitymat import WorkStream
 
 qutip_cuquantum.set_as_default(WorkStream())
+```
+
+It can also be used as a context:
+
+```
+with CuQuantumBackend(ctx):
+    ...
 ```
 
 qutip-cuquantum work well to speed-up large simulation using `mesolve` or `sesolve`.

@@ -8,7 +8,7 @@ cudense = pytest.importorskip("cuquantum.densitymat")
 
 import qutip
 from qutip_cuquantum.state import (
-    CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState,
+    CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState, l2_cuState,
     frobenius_cuState, trace_cuState, inner_cuState, wrmn_error_cuState
 )
 
@@ -71,15 +71,15 @@ _unary_mixed = [
 
 _compatible_hilbert = [
     (
-        pytest.param((2, True), id="simple ket"), 
+        pytest.param((2, True), id="simple ket"),
          pytest.param((2, True), id="simple ket"),
     ),
     (
-        pytest.param((2, 3, True), id="2 hilbert ket"), 
+        pytest.param((2, 3, True), id="2 hilbert ket"),
         pytest.param((2, 3, True), id="weak ket"),
     ),
     (
-        pytest.param((2, 2, 2, 3, True), id="complex ket"), 
+        pytest.param((2, 2, 2, 3, True), id="complex ket"),
         pytest.param((2, 2, 2, 3, True), id="complex ket"),
     ),
     (
@@ -110,19 +110,19 @@ _kron_hilbert = [
         pytest.param((2, True), id="simple ket"),
         pytest.param((3, True), id="simple ket"),),
     (
-        pytest.param((2, 3, True), id="2 hilbert ket"), 
+        pytest.param((2, 3, True), id="2 hilbert ket"),
         pytest.param((2, True), id="simple ket"),),
     (
-        pytest.param((2, 4, 3, True), id="complex ket"), 
+        pytest.param((2, 4, 3, True), id="complex ket"),
         pytest.param((4, 6, True), id="complex ket"),),
     (
-        pytest.param((2, False), id="simple dm"), 
+        pytest.param((2, False), id="simple dm"),
         pytest.param((2, 3, False), id="2 hilbert dm"),),
     (
-        pytest.param((2, 3, 2, False), id="3 hilbert dm"), 
+        pytest.param((2, 3, 2, False), id="3 hilbert dm"),
         pytest.param((2, 6, False), id="2 hilbert dm"),),
     (
-        pytest.param((2, 3, 4, False), id="complex dm"), 
+        pytest.param((2, 3, 4, False), id="complex dm"),
         pytest.param((2, 6, 2, False), id="complex dm"),
     ),
 ]
@@ -175,6 +175,15 @@ class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
     bad_shapes = []
 
 
+class TestL2Norm(test_norm.TestL2Norm):
+    specialisations = [
+        pytest.param(l2_cuState, CuState, float),
+    ]
+
+    shapes = _unary_pure
+    bad_shapes = _unary_mixed
+
+
 class TestInner(test_tools.TestInner):
     specialisations = [
         pytest.param(inner_cuState, CuState, CuState, complex),
@@ -182,3 +191,19 @@ class TestInner(test_tools.TestInner):
 
     shapes = [(hilbert[0], hilbert[0]) for hilbert in _unary_pure]
     bad_shapes = []
+
+
+def test_isherm():
+    A = qutip.basis(3, dtype="CuState")
+    assert _data.isherm(A.data) == False
+    B = qutip.rand_dm(3, dtype="CuState")
+    assert _data.isherm(B.data)
+    C = qutip.rand_stochastic(5, density=1) @ qutip.rand_dm(5, density=1)
+    assert _data.isherm(C.to("CuState").data) == False
+
+
+def test_conj():
+    A = (qutip.basis(3, dtype="CuState") * 0.5j).data
+    assert abs(frobenius_cuState(A - A.conj()) - 1.) < 1e-10
+    B = (qutip.basis(3, dtype="CuState")).data
+    assert abs(frobenius_cuState(B - B.conj())) < 1e-10

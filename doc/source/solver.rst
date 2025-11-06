@@ -32,9 +32,23 @@ This is done by calling the ``set_as_default`` function and providing it with a 
 The ``set_as_default`` function changes several QuTiP defaults to route computations through the cuQuantum library.
 This includes setting the default data format for quantum objects (``Qobj``) to ``CuOperator`` and configuring the solvers to use GPU-compatible integrators.
 
-.. warning::
-    This operation is **not reversible** within the same Python session.
-    Once the cuQuantum backend is set, all subsequent compatible operations will be dispatched to the GPU.
+This operation can be reversed with:
+
+.. code-block:: python
+
+    qutip_cuquantum.set_as_default(reverse=True)
+
+
+The backend can also be enabled with a context:
+
+.. code-block:: python
+
+    with CuQuantumBackend(ctx):
+        ...
+
+However be careful when mixing core Qutip object and Qutip-cuQuantum's one.
+Qutip's Qobj do not keep all the internal structure needed for cuQuantum's optimizations.
+Qutip-cuQuantum's states can be distributed in multiple processes and unusable for many qutip's core features. 
 
 ==================================
 Usage with Solvers
