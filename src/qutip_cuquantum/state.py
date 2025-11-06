@@ -18,7 +18,7 @@ class CuState(Data):
         ctx = settings.cuDensity["ctx"]
         if hilbert_dims is not None and any(d < 0 for d in hilbert_dims):
             raise ValueError("weak hilbert dims not supported for CuState")
-        
+
         if isinstance(arg, (DensePureState, DenseMixedState)):
             if shape is not None:
                 pass
@@ -40,7 +40,7 @@ class CuState(Data):
                 # TODO: Add sanity check for hilbert_dims
                 base = DenseMixedState(ctx, hilbert_dims, 1, "complex128")
                 sizes, offsets = base.local_info
-                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:1]
+                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
                 N = np.prod(sizes)
                 if len(arg._cp) == N:
                     base.attach_storage(cp.array(
@@ -60,7 +60,7 @@ class CuState(Data):
             else:
                 base = DensePureState(ctx, hilbert_dims, 1, "complex128")
                 sizes, offsets = base.local_info
-                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:1]
+                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
                 N = np.prod(sizes)
                 if len(arg._cp) == N:
                     base.attach_storage(cp.array(
@@ -100,7 +100,7 @@ class CuState(Data):
             else:
                 base = DensePureState(ctx, hilbert_dims, 1, "complex128")
                 sizes, offsets = base.local_info
-                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:1]
+                sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
                 N = np.prod(sizes)
                 arr_np = arg.to_array().reshape(hilbert_dims)[sls].ravel("F")
                 base.allocate_storage()
@@ -169,7 +169,10 @@ class CuState(Data):
         return self * (1 / other)
 
     def conj(self):
-        raise NotImplementedError()
+        return CuState(
+            self.base.clone(cp.array(self.base.storage.conj(), copy=False)),
+            shape=self.shape
+        )
 
     def transpose(self):
         raise NotImplementedError()
@@ -247,6 +250,13 @@ def frobenius_cuState(mat):
     return float(mat.base.norm())**0.5
 
 
+@_data.norm.l2.register(CuState)
+def l2_cuState(matrix):
+    if matrix.shape[0] != 1 and matrix.shape[1] != 1:
+        raise ValueError("L2 norm is only defined on vectors")
+    return frobenius_cuState(matrix)
+
+
 @_data.ode.wrmn_error.register(CuState)
 def wrmn_error_cuState(diff, state, atol, rtol):
     if diff.base.hilbert_space_dims != state.base.hilbert_space_dims:
@@ -273,6 +283,19 @@ def column_stack(matrix):
 @_data.column_unstack.register(CuState)
 def column_unstack(matrix, rows):
     return CuState(matrix.base, shape=(matrix.shape[0] / rows, rows))
+
+
+@_data.isherm.register(CuState)
+def isherm(state, tol=-1):
+    if state.shape[0] != state.shape[1]:
+        return False
+    if settings.cuDensity["ctx"].get_num_ranks() != 1:
+        # MPI, Not Implemented yet.
+        return None
+    cupy_view = state.to_cupy()
+    if tol < 0:
+        tol = settings.core["atol"]
+    return cp.allclose(cupy_view, cupy_view.T.conj(), atol=tol)
 
 
 def zeros_like_cuState(state):
