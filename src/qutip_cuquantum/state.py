@@ -36,6 +36,15 @@ class CuState(Data):
                 hilbert_dims = arg.hilbert_space_dims
             base = arg
 
+        elif isinstance(arg, CuState):
+            if shape is not None:
+                assert arg.shape == shape
+            else:
+                shape = arg.shape
+            if hilbert_dims is not None:
+                assert arg.base.hilbert_space_dims == hilbert_dims
+            base = arg.base
+
         elif (CuPyDense is not None and isinstance(arg, CuPyDense)) or isinstance(arg, cp.ndarray):
             if CuPyDense is not None and isinstance(arg, CuPyDense):
                 arg = arg._cp
@@ -221,6 +230,7 @@ class CuState(Data):
         arr = self.to_cupy().transpose().conj()
         return CuState(arr, hilbert_dims=self.base.hilbert_space_dims, shape=(self.shape[1], self.shape[0]))
 
+
 def CuState_from_Dense(mat):
     return CuState(mat)
 
@@ -357,7 +367,7 @@ def adjoint_cuState(state):
 @_data.sub.register(CuState)
 def sub_cuState(left, right):
     return add_cuState(left, right, -1)
-    
+
 @_data.iszero.register(CuState)
 def iszero_cuState(state):
     return not cp.any(state.base.storage)
@@ -378,12 +388,12 @@ def matmul_cuState(left, right):
     ctx = settings.cuDensity["ctx"]
     if(left.shape[0] == 1 and right.shape[1] == 1):
         # Scalar case
-        hilbert_dims = (1,)    
+        hilbert_dims = (1,)
     else:
         hilbert_dims = left.base.hilbert_space_dims
 
     left_array = left.to_cupy()
     right_array = right.to_cupy()
     arr = left_array @ right_array
-    
+
     return CuState(arr, hilbert_dims=hilbert_dims, shape=output_shape)
