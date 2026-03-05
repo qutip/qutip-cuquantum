@@ -43,6 +43,8 @@ class CuState(Data):
                 shape = arg.shape
             if hilbert_dims is not None:
                 assert arg.base.hilbert_space_dims == hilbert_dims
+            if copy:
+                arg = arg.copy()
             base = arg.base
 
         elif (CuPyDense is not None and isinstance(arg, CuPyDense)) or isinstance(arg, cp.ndarray):
