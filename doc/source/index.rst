@@ -23,6 +23,7 @@ qutip-cuquantum |version|: cuQuantum-backend for QuTiP
     :caption: User guide
 
     solver.rst
+    data.rst
 
 ..
     .. toctree::
