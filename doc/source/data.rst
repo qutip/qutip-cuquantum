@@ -294,6 +294,12 @@ or explicitly construct it as ``Dia`` via ``dtype`` argument:
 
     H_diag = qutip.Qobj(np.diag(energies), dtype='Dia').to('CuOperator')
 
+or construct with the `qdiags` operation:
+
+.. code-block:: python
+
+    H_diag = qutip.qdiags(energies, dtype='CuOperator')
+
 CuOperator: Tensor Structure and Performance
 =============================================
 
