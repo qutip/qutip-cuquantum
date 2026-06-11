@@ -40,7 +40,7 @@ Documentation = "https://qutip-cuquantum.readthedocs.io/en/latest/"
 [project.optional-dependencies]
 cuda11 = ["cupy-cuda11x", "cuquantum-python-cu11"]
 cuda12 = ["cupy-cuda12x", "cuquantum-python-cu12"]
-cuda12 = ["cupy-cuda13x", "cuquantum-python-cu13"]
+cuda13 = ["cupy-cuda13x", "cuquantum-python-cu13"]
 tests = ["pytest>=6.0"]
 
 [project.entry-points."qutip.family"]
