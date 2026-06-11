@@ -3,7 +3,6 @@ requires = [
     "setuptools",
     "packaging",
     "wheel",
-    "Cython",
     "qutip>=5.3.0",
     "numpy",
 ]
