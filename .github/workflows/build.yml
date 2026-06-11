@@ -59,7 +59,7 @@ jobs:
           python-version: '3.13'
 
       - name: Build wheels
-        run: pip wheel . --output-dir wheelhouse
+        run: pip wheel . --wheel-dir wheelhouse --no-deps
 
       - name: Upload wheels artifact
         uses: actions/upload-artifact@v7
@@ -72,7 +72,7 @@ jobs:
   publish_to_testpypi:
     name: Publish to TestPyPI
     needs: [build_sdist, build_wheels]
-    if: github.ref_type != 'tag' && github.ref_name == 'main'
+    if: false  # github.ref_type != 'tag' && github.ref_name == 'main'
     runs-on: ubuntu-latest
 
     environment:
