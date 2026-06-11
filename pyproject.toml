@@ -3,8 +3,6 @@ requires = [
     "setuptools",
     "packaging",
     "wheel",
-    "qutip>=5.3.0",
-    "numpy",
 ]
 build-backend = "setuptools.build_meta"
 

@@ -1,5 +1,3 @@
-#cython: language_level=3
-
 import cuquantum.densitymat as cudense
 from cuquantum.densitymat import Operator
 
