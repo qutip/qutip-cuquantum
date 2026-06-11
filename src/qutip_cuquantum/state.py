@@ -376,7 +376,7 @@ def iszero_cuState(state):
 
 
 @_data.matmul.register(CuState)
-def matmul_cuState(left, right):
+def matmul_cuState(left, right, scale=1):
     if(left.shape[1] != right.shape[0]):
         raise ValueError("Incompatible shapes")
 
@@ -396,6 +396,6 @@ def matmul_cuState(left, right):
 
     left_array = left.to_cupy()
     right_array = right.to_cupy()
-    arr = left_array @ right_array
+    arr = left_array @ right_array * scale
 
     return CuState(arr, hilbert_dims=hilbert_dims, shape=output_shape)

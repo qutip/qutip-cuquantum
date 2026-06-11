@@ -90,29 +90,6 @@ def create_version_py_file(options):
         print(content, file=file)
 
 
-
-def get_ext_modules(options):
-    pyx_file = os.path.join("src", "qutip_cuquantum", "qobjevo.pyx")
-    include_dirs = [
-        numpy.get_include(),
-        os.path.abspath(os.path.join(qutip.core.data.__file__, os.pardir)),
-        os.path.abspath(os.path.join(qutip_cc.__file__, os.pardir)),
-        os.path.abspath(os.path.join(qutip.__file__, os.pardir))
-    ]
-    print("*********************************************************************************")
-    print(include_dirs)
-    print(pyx_file)
-    print("*********************************************************************************")
-    ext = setuptools.Extension(
-        name="qutip_cuquantum.qobjevo",
-        sources=[pyx_file],
-        include_dirs=include_dirs,
-        language="c++",
-    )
-
-    return cythonize(ext, include_path=include_dirs)
-
-
 if __name__ == "__main__":
     options = process_options()
     create_version_py_file(options)
@@ -120,6 +97,5 @@ if __name__ == "__main__":
     # keep here are ones that we have done some compile-time processing on.
 
     setuptools.setup(
-        version = options["version"],
-        ext_modules = get_ext_modules(options),
+        version = options["version"]
     )

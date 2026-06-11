@@ -157,8 +157,10 @@ class TestSub(test_tools.TestSub):
 
 class TestMatmul(test_tools.TestMatmul):
     specialisations = [
-        pytest.param(lambda x, y: x @ y, CuOperator, CuOperator, CuOperator),
-    ]
+        pytest.param(
+            lambda x, y, scale=1.: x @ y * scale, 
+            CuOperator, CuOperator, CuOperator
+    )]
 
     shapes = _compatible_hilbert
     bad_shapes = _imcompatible_hilbert
