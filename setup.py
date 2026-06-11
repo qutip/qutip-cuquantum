@@ -7,10 +7,6 @@ import sys
 # Required third-party imports, must be specified in pyproject.toml.
 import packaging.version
 import setuptools
-from Cython.Build import cythonize
-import qutip
-import qutip.core.cy as qutip_cc
-import numpy
 
 
 def process_options():
