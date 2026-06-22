@@ -149,7 +149,16 @@ _kron_hilbert = [
 
 class TestTrace(test_tools.TestTrace):
     specialisations = [
-        pytest.param(trace_cuState, CuState, CuState, complex),
+        pytest.param(trace_cuState, CuState, complex),
+    ]
+
+    shapes = _unary_mixed
+    bad_shapes = []
+
+
+class TestTrace_oper_ket(test_tools.TestTrace_oper_ket):
+    specialisations = [
+        pytest.param(trace_oper_ket_cuState, CuState, complex),
     ]
 
     shapes = _unary_mixed

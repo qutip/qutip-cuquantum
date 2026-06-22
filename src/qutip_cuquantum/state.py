@@ -260,6 +260,11 @@ def trace_cuState(mat):
     return complex(mat.base.trace()[0])
 
 
+@_data.trace_oper_ket.register(CuState)
+def trace_oper_ket_cuState(mat):
+    return mat.base.trace()
+
+
 @_data.inner.register(CuState)
 def inner_cuState(left, right, scalar_is_ket=False):
     if left.shape == (1, 1) and not scalar_is_ket:
