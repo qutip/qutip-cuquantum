@@ -72,6 +72,55 @@ class CuQobjEvo(QobjEvo):
         )
         return out
 
+    def expect(self, t, state, check_real=True):
+        """
+        Expectation value of this operator at time ``t`` with the state.
+
+        Parameters
+        ----------
+        t : float
+            Time of the operator to apply.
+
+        state : Qobj
+            right matrix of the product
+
+        check_real : bool (True)
+            Whether to convert the result to a `real` when the imaginary part
+            is smaller than the real part by a dactor of
+            ``settings.core['rtol']``.
+
+        Returns
+        -------
+        expect : float or complex
+            ``state.adjoint() @ self @ state`` if ``state`` is a ket.
+            ``trace(self @ matrix)`` is ``state`` is an operator or
+            operator-ket.
+        """
+        # TODO: remove reading from `settings` for a typed value when options
+        # support property.
+        herm_rtol = settings.core['rtol']
+        if not isinstance(state, Qobj):
+            raise TypeError("A Qobj state is expected")
+        if not (self.isoper or self.issuper):
+            raise ValueError("Must be an operator or super operator to compute"
+                             " an expectation value")
+        if not (
+            (self._dims[1] == state._dims[0]) or
+            (self.issuper and self._dims[1] == state._dims)
+        ):
+            raise ValueError("incompatible dimensions " + str(self.dims) +
+                             ", " + str(state.dims))
+        out = self.expect_data(t, state.data)
+        if isinstance(state.data, CuState) and state.data.base.batch_size != 1:
+            return out
+        if (
+            check_real and
+            (out == 0 or (out.real and abs(out.imag / out.real) < herm_rtol))
+        ):
+            return out.real
+        return out
+
+
     def expect_data(self, t, state):
         if not isinstance(state, CuState):
             state = CuState(state, hilbert_dims=self.hilbert_space_dims)
@@ -83,7 +132,10 @@ class CuQobjEvo(QobjEvo):
             self.expect_ready = True
         # Workaround for a bug in cudensity 0.2.0.
         settings.cuDensity["ctx"].release_workspace()
-        return self.operator.compute_expectation(t, None, state.base).get()[0]
+        expect = self.operator.compute_expectation(t, None, state.base).get()
+        if state.base.batch_size == 1:
+            return expect[0]
+        return expect
 
     def arguments(self, args):
         raise NotImplementedError

@@ -616,6 +616,7 @@ def CuOperator_from_Dense(mat):
 
 def Dense_from_CuOperator(mat):
     print("converting to Dense")
+    raise Exception
     return _data.Dense(mat.to_array())
 
 
@@ -714,6 +715,15 @@ def dimensions_CuOperator(matrix, hilbert, order):
             ))
         new.terms.append(copy_term)
     return new
+
+
+@_data.iszero.register(CuOperator)
+def iszero_CuOperator(state):
+    for term in state.terms:
+        if term.factor != 0:
+            return False
+        # TODO: Would also be false if all term's operators are zeros
+    return True
 
 
 @_data.isequal.register(CuOperator)

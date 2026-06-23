@@ -1,10 +1,14 @@
 import qutip.core.data as _data
-
+from qutip import liouvillian, spre, spost
+from ..state import trace_oper_ket_cuState
 
 add = _data.add
 imul = _data.imul
 zeros_like = _data.zeros_like
 iadd = _data.iadd
+
+
+__all__ = ["PyStochasticOpenSystem"]
 
 
 class PyStochasticOpenSystem:
@@ -68,7 +72,7 @@ class PyStochasticOpenSystem:
             self._a = zeros_like(state)
             self._b = [zeros_like(state) for _ in range(n)]
             self.expect_Cv = [0] * n
-            self.expect_Cv = [[0] * n for _ in range(n)]
+            self.expect_Cb = [[0] * n for _ in range(n)]
             self._Lb = [
                 [zeros_like(state) for _ in range(n)]
                 for _ in range(n)

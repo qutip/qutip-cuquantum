@@ -356,24 +356,34 @@ def isherm(state, tol=-1):
     return cp.allclose(cupy_view, cupy_view.T.conj(), atol=tol)
 
 
+@_data.zeros_like.register(CuState)
 def zeros_like_cuState(state):
-    return CuState(state.base.clone(cp.zeros_like(state.base.storage, order="F")))
+    return CuState(
+        state.base.clone(cp.zeros_like(state.base.storage, order="F")),
+        state.base.hilbert_space_dims,
+        shape = state.shape
+    )
+
 
 @_data.conj.register(CuState)
 def conj_cuState(state):
     return state.conj()
 
+
 @_data.transpose.register(CuState)
 def transpose_cuState(state):
     return state.transpose()
+
 
 @_data.adjoint.register(CuState)
 def adjoint_cuState(state):
     return state.adjoint()
 
+
 @_data.sub.register(CuState)
 def sub_cuState(left, right):
     return add_cuState(left, right, -1)
+
 
 @_data.iszero.register(CuState)
 def iszero_cuState(state):
@@ -402,5 +412,23 @@ def matmul_cuState(left, right, scale=1):
     left_array = left.to_cupy()
     right_array = right.to_cupy()
     arr = left_array @ right_array * scale
+
+    return CuState(arr, hilbert_dims=hilbert_dims, shape=output_shape)
+
+
+@_data.project.register(CuState)
+def project(pure):
+    if pure.shape[1] != 1:
+        pure = pure.adjoint()
+    if pure.shape[1] != 1:
+        raise ValueError("state must be a ket or a bra.")
+
+    output_shape = (pure.shape[0], pure.shape[0])
+    ctx = settings.cuDensity["ctx"]
+    hilbert_dims = pure.base.hilbert_space_dims
+
+    left = pure.to_cupy()
+    right = left.T.conj()
+    arr = left @ right
 
     return CuState(arr, hilbert_dims=hilbert_dims, shape=output_shape)
