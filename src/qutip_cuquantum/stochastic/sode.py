@@ -580,8 +580,9 @@ class PredCorr_SODE(Explicit_Simple_Integrator_Batched):
         Integrator.options.fset(self, new_options)
 
 
+"""
 class RouchonSODE(SIntegrator):
-    """
+    ""
     Stochastic integration method keeping the positivity of the density matrix.
     See eq. (4) Pierre Rouchon and Jason F. Ralpha,
     *Efficient Quantum Filtering for Quantum Feedback Control*,
@@ -596,7 +597,7 @@ class RouchonSODE(SIntegrator):
     methods that will return unphysical state (negative eigenvalues, Nans)
     when the time step is too large, this method will return state that
     seems normal.
-    """
+    ""
     integrator_options = {
         "dt": 0.0001,
         "tol": 1e-7,
@@ -639,7 +640,7 @@ class RouchonSODE(SIntegrator):
         self.id = _data.identity[dtype](self.H.shape[0])
 
     def set_state(self, t, state0, generator):
-        """
+        ""
         Set the state of the SODE solver.
 
         Parameters
@@ -652,7 +653,7 @@ class RouchonSODE(SIntegrator):
 
         generator : numpy.random.generator
             Random number generator.
-        """
+        ""
         self.t = t
         self.state = state0
         if isinstance(generator, Wiener):
@@ -724,7 +725,7 @@ class RouchonSODE(SIntegrator):
 
     @property
     def options(self):
-        """
+        ""
         Supported options by Rouchon Stochastic Integrators:
 
         dt : float, default: 0.001
@@ -732,7 +733,7 @@ class RouchonSODE(SIntegrator):
 
         tol : float, default: 1e-7
             Relative tolerance.
-        """
+        ""
         return self._options
 
     @options.setter
@@ -749,7 +750,7 @@ class RouchonSODE(SIntegrator):
             )
         if self._is_set:
             self.set_state(*state)
-
+"""
 
 # SMESolver.add_integrator(RouchonSODE, "rouchon")
 SMESolver.add_integrator(EulerSODE, "euler")

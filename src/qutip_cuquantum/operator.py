@@ -616,7 +616,7 @@ def CuOperator_from_Dense(mat):
 
 def Dense_from_CuOperator(mat):
     print("converting to Dense")
-    raise Exception
+    raise RuntimeError
     return _data.Dense(mat.to_array())
 
 

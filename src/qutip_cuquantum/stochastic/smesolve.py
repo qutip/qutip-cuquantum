@@ -279,16 +279,28 @@ class StochasticResult(MultiTrajResult):
         for i, k in enumerate(self._raw_ops):
             avg = 0
             avg2 = 0
-            for j in range(self.batch_size):
+            if self.batch_size > 1:
+                for j in range(self.batch_size):
+                    if self._sum_det:
+                        avg += self._sum_det.sum_expect[i][..., j]
+                        avg2 += self._sum_det.sum2_expect[i][..., j]
+                    if self._sum_rel:
+                        avg += (
+                            self._sum_rel.sum_expect[i][..., j] / self.num_trajectories
+                        )
+                        avg2 += (
+                            self._sum_rel.sum2_expect[i][..., j] / self.num_trajectories
+                        )
+            else:
                 if self._sum_det:
-                    avg += self._sum_det.sum_expect[i][..., j]
-                    avg2 += self._sum_det.sum2_expect[i][..., j]
+                    avg += self._sum_det.sum_expect[i]
+                    avg2 += self._sum_det.sum2_expect[i]
                 if self._sum_rel:
                     avg += (
-                        self._sum_rel.sum_expect[i][..., j] / self.num_trajectories
+                        self._sum_rel.sum_expect[i] / self.num_trajectories
                     )
                     avg2 += (
-                        self._sum_rel.sum2_expect[i][..., j] / self.num_trajectories
+                        self._sum_rel.sum2_expect[i] / self.num_trajectories
                     )
 
             self._average_e_data[k] = list(avg)
@@ -535,6 +547,19 @@ class StochasticSolver(MultiTrajSolver):
         for t, state, noise in self._integrator.run(tlist):
             result.add(t, self._restore_state(state, copy=False), noise)
         return seed, result
+
+    def _initialize_run_one_traj(self, seed, state, tlist, e_ops,
+                                 **integrator_kwargs):
+        result = self._trajectory_resultclass(e_ops, self.options)
+        if "generator" in integrator_kwargs:
+            generator = integrator_kwargs.pop("generator")
+        else:
+            generator = self._get_generator(seed)
+        self._integrator.set_state(tlist[0], state, generator,
+                                   **integrator_kwargs)
+        t, state, _ = self._integrator.get_state()
+        result.add(t, self._restore_state(state, copy=False))
+        return result
 
     def run_from_experiment(
         self,
