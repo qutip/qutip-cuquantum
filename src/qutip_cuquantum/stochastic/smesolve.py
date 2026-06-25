@@ -550,6 +550,12 @@ class StochasticSolver(MultiTrajSolver):
 
     def _initialize_run_one_traj(self, seed, state, tlist, e_ops,
                                  **integrator_kwargs):
+        e_ops_filtered = []
+        for op in e_ops:
+            if isinstance(op, (Qobj, QobjEvo)):
+                e_ops_filtered.append(CuQobjEvo(QobjEvo(op, copy=False)))
+            else:
+                e_ops_filtered.append(op)
         result = self._trajectory_resultclass(e_ops, self.options)
         if "generator" in integrator_kwargs:
             generator = integrator_kwargs.pop("generator")
