@@ -8,6 +8,7 @@ from qutip.solver.integrator.integrator import Integrator
 from .smesolve import SMESolver
 from .batching import batch_copy
 from ..state import CuState
+from ..qobjevo import CuQobjEvo
 
 from .system import PyStochasticOpenSystem
 
@@ -580,9 +581,9 @@ class PredCorr_SODE(Explicit_Simple_Integrator_Batched):
         Integrator.options.fset(self, new_options)
 
 
-"""
-class RouchonSODE(SIntegrator):
-    ""
+import qutip as qt
+class RouchonSODE(Explicit_Simple_Integrator_Batched):
+    """
     Stochastic integration method keeping the positivity of the density matrix.
     See eq. (4) Pierre Rouchon and Jason F. Ralpha,
     *Efficient Quantum Filtering for Quantum Feedback Control*,
@@ -597,7 +598,7 @@ class RouchonSODE(SIntegrator):
     methods that will return unphysical state (negative eigenvalues, Nans)
     when the time step is too large, this method will return state that
     seems normal.
-    ""
+    """
     integrator_options = {
         "dt": 0.0001,
         "tol": 1e-7,
@@ -608,39 +609,55 @@ class RouchonSODE(SIntegrator):
         self._options = self.integrator_options.copy()
         self.options = options
         self.rhs = rhs
+        if not rhs.issuper:
+            raise NotImplementedError
         self._make_operators()
 
     def _make_operators(self):
         rhs = self.rhs
-        self.H = rhs.H
-        if self.H.issuper:
+        H = rhs.H
+        c_ops = rhs.c_ops
+        sc_ops = rhs.sc_ops
+        N = len(sc_ops)
+        self.num_collapses = N
+        dt = self.options["dt"]
+        dy = np.zeros(N, dtype=float)
+        dw = np.zeros((N, N), dtype=float)
+
+        if H.issuper:
             raise TypeError("The rouchon stochastic integration method can't"
                             " use a premade Liouvillian.")
         self._issuper = rhs.issuper
 
-        dtype = type(self.H(0).data)
-        self.c_ops = rhs.c_ops
-        self.sc_ops = rhs.sc_ops
-        self.cpcds = [op + op.dag() for op in self.sc_ops]
-        for op in self.cpcds:
-            op.compress()
-        self.M = (
-            - 1j * self.H
-            - sum(op.dag() @ op for op in self.c_ops) * 0.5
-            - sum(op.dag() @ op for op in self.sc_ops) * 0.5
-        )
-        self.M.compress()
+        def _y(t, _i):
+            return dy[i]
 
-        self.num_collapses = len(self.sc_ops)
-        self.scc = [
-            [self.sc_ops[i] @ self.sc_ops[j] for i in range(j+1)]
-            for j in range(self.num_collapses)
-        ]
+        def _w(t, _i, _j):
+            return dw[i, j]
 
-        self.id = _data.identity[dtype](self.H.shape[0])
+        M = 1 - 1j * dt * H
+        for op in c_ops:
+            M -= op.dag() @ op * (0.5 * dt)
+        for i, op in enumerate(sc_ops):
+            M -= op.dag() @ op * (0.5 * dt)
+            M += op * qt.coefficient(_y, args={"_i": i})
+            for j in range(i, len(sc_ops)):
+                M += (
+                    (op @ sc_ops[j])
+                    * qt.coefficient(_w, args={"_i": i, "_j": j})
+                )
+
+        self.C = 0
+        for op in c_ops:
+            self.C += qt.sprepost(op, op.dag())
+            self.C = CuQobjEvo(self.C)
+
+        self.M_l = CuQobjEvo(qt.spre(M))
+        self.M_r = CuQobjEvo(qt.spost(M.dag()))
+        self.cpcds = [CuQobjEvo((op + op.dag()) * dt) for op in sc_ops]
 
     def set_state(self, t, state0, generator):
-        ""
+        """
         Set the state of the SODE solver.
 
         Parameters
@@ -653,7 +670,7 @@ class RouchonSODE(SIntegrator):
 
         generator : numpy.random.generator
             Random number generator.
-        ""
+        """
         self.t = t
         self.state = state0
         if isinstance(generator, Wiener):
@@ -666,6 +683,9 @@ class RouchonSODE(SIntegrator):
         self.rhs._register_feedback(self.wiener)
         self._make_operators()
         self._is_set = True
+
+        self._tmp = _data.zeros_like(state0)
+        self._out = _data.zeros_like(state0)
 
     def integrate(self, t, copy=True):
         delta_t = (t - self.t)
@@ -686,46 +706,41 @@ class RouchonSODE(SIntegrator):
             N += 1
         dW = self.wiener.dW(self.t, N)[:, 0, :]
 
-        # if self._issuper:
-        #     self.state = unstack_columns(self.state)
         for dw in dW:
-            self.state = self._step(self.t, self.state, dt, dw)
+            new_state = self._step(self.t, self.state, dt, dw)
+            self.state, self._out = new_state, self.state
             self.t += dt
-        # if self._issuper:
-        #     self.state = stack_columns(self.state)
 
         return self.t, self.state, np.sum(dW, axis=0)
 
     def _step(self, t, state, dt, dW):
-        dy = [
+        dy = np.array([
             op.expect_data(t, state) * dt + dw
             for op, dw in zip(self.cpcds, dW)
-        ]
-        M = _data.add(self.id, self.M._call(t), dt)
-        for i in range(self.num_collapses):
-            M = _data.add(M, self.sc_ops[i]._call(t), dy[i])
-            M = _data.add(M, self.scc[i][i]._call(t), (dy[i]**2-dt)/2)
-            for j in range(i):
-                M = _data.add(M, self.scc[i][j]._call(t), dy[i]*dy[j])
-        out = _data.matmul(M, state)
+        ])
 
-        # M = (1 + -iH + c_i*c_i^t * dt + c_i dy_i +  c_i c_j dyy_ij)
-        # M @ rho @ M
+        N = self.num_collapses
+        ncol = state.shape[1]
 
-        if self._issuper:
-            Mdag = M.adjoint()
-            out = _data.matmul(out, Mdag)
-            for cop in self.c_ops:
-                op = cop._call(t)
-                out += op @ state @ op.adjoint() * dt
-            out = out / _data.trace(out)
-        else:
-            out = out / _data.norm.l2(out)
-        return out
+        self.dy[:] = dy
+        self.dw[:] = dy[:, None] @ dy[None, :] - np.eye(N) * dt
+        for i in range(N):
+            self.dw[i, i] /= 2
+
+        self._tmp = _data.imul(self._tmp, 0)
+        self._out = _data.imul(self._out, 0)
+
+        self._tmp = self.M_l.matmul_data(t, state, self._tmp)
+        self._out = self.M_r.matmul_data(t, self._tmp, self._out)
+        if self.C:
+            self._out = self.C.matmul_data(t, state, self._out)
+
+        self._out = _data.imul(self._out, _data.trace(self._out))
+        return self._out
 
     @property
     def options(self):
-        ""
+        """
         Supported options by Rouchon Stochastic Integrators:
 
         dt : float, default: 0.001
@@ -733,7 +748,7 @@ class RouchonSODE(SIntegrator):
 
         tol : float, default: 1e-7
             Relative tolerance.
-        ""
+        """
         return self._options
 
     @options.setter
@@ -750,9 +765,9 @@ class RouchonSODE(SIntegrator):
             )
         if self._is_set:
             self.set_state(*state)
-"""
 
-# SMESolver.add_integrator(RouchonSODE, "rouchon")
+
+SMESolver.add_integrator(RouchonSODE, "rouchon")
 SMESolver.add_integrator(EulerSODE, "euler")
 SMESolver.add_integrator(PlatenSODE, "platen")
 SMESolver.add_integrator(Explicit1_5_SODE, "explicit1.5")

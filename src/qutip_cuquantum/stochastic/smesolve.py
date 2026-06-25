@@ -556,7 +556,7 @@ class StochasticSolver(MultiTrajSolver):
                 e_ops_filtered.append(CuQobjEvo(QobjEvo(op, copy=False)))
             else:
                 e_ops_filtered.append(op)
-        result = self._trajectory_resultclass(e_ops, self.options)
+        result = self._trajectory_resultclass(e_ops_filtered, self.options)
         if "generator" in integrator_kwargs:
             generator = integrator_kwargs.pop("generator")
         else:
