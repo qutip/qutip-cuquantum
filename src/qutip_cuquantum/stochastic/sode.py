@@ -623,6 +623,8 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         dt = self.options["dt"]
         dy = np.zeros(N, dtype=float)
         dw = np.zeros((N, N), dtype=float)
+        self.dy = dy
+        self.dw = dw
 
         if H.issuper:
             raise TypeError("The rouchon stochastic integration method can't"
@@ -672,20 +674,26 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
             Random number generator.
         """
         self.t = t
-        self.state = state0
+        self.batch = self.options["batch"]
         if isinstance(generator, Wiener):
             self.wiener = generator
         else:
             self.wiener = Wiener(
                 t, self.options["dt"], generator,
-                (1, self.num_collapses,)
+                (1, self.num_collapses, self.batch)
             )
         self.rhs._register_feedback(self.wiener)
         self._make_operators()
         self._is_set = True
 
-        self._tmp = _data.zeros_like(state0)
-        self._out = _data.zeros_like(state0)
+        if self.batch == 1:
+            self.state = CuState(state0, self.M_l.hilbert_space_dims)
+        else:
+            state0 = CuState(state0, self.M_l.hilbert_space_dims)
+            self.state = batch_copy(state0, self.batch)
+
+        self._tmp = _data.zeros_like(self.state)
+        self._out = _data.zeros_like(self.state)
 
     def integrate(self, t, copy=True):
         delta_t = (t - self.t)
@@ -722,8 +730,8 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         N = self.num_collapses
         ncol = state.shape[1]
 
-        self.dy[:] = dy
-        self.dw[:] = dy[:, None] @ dy[None, :] - np.eye(N) * dt
+        self.dy[:] = dy[:, 0]
+        self.dw[:] = self.dy[:, None] @ self.dy[None, :] - np.eye(N) * dt
         for i in range(N):
             self.dw[i, i] /= 2
 
@@ -735,7 +743,7 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         if self.C:
             self._out = self.C.matmul_data(t, state, self._out)
 
-        self._out = _data.imul(self._out, _data.trace(self._out))
+        self._out = _data.imul(self._out, _data.trace_oper_ket(self._out))
         return self._out
 
     @property
