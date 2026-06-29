@@ -13,8 +13,9 @@ cudense = pytest.importorskip("cuquantum.densitymat")
 import qutip
 from qutip_cuquantum.state import (
     CuState, iadd_cuState, add_cuState, mul_cuState, imul_cuState, l2_cuState,
-    frobenius_cuState, trace_cuState, inner_cuState, wrmn_error_cuState,
-    transpose_cuState, adjoint_cuState, matmul_cuState
+    frobenius_cuState, trace_cuState, trace_oper_ket_cuState,
+    inner_cuState, wrmn_error_cuState,
+    transpose_cuState, adjoint_cuState, matmul_cuState, project_CuState
 )
 
 import qutip.core.data as _data
@@ -114,14 +115,14 @@ _matmul_incompatible = [
         pytest.param((2, 12, StateType.DM), id="2,12 dm"),
     ),
     (
-        pytest.param((2, 3, StateType.KET), id="2,3 ket"),        
+        pytest.param((2, 3, StateType.KET), id="2,3 ket"),
         pytest.param((2, 3, StateType.DM), id="2,3 dm"),
     ),
     (
-        pytest.param((2, 3, StateType.DM), id="2,3 dm"),                    
-        pytest.param((2, 3, StateType.BRA), id="2,3 bra"),        
+        pytest.param((2, 3, StateType.DM), id="2,3 dm"),
+        pytest.param((2, 3, StateType.BRA), id="2,3 bra"),
 
-    ),    
+    ),
 ]
 
 _kron_hilbert = [
@@ -149,7 +150,9 @@ _kron_hilbert = [
 
 class TestTrace(test_tools.TestTrace):
     specialisations = [
-        pytest.param(trace_cuState, CuState, CuState, complex),
+        pytest.param(trace_cuState, CuState, complex),
+        # OperKet are not actually stacked in the tensor rep
+        pytest.param(trace_oper_ket_cuState, CuState, complex),
     ]
 
     shapes = _unary_mixed
@@ -237,6 +240,15 @@ class TestMatmul(test_tools.TestMatmul):
 
     shapes = _matmul_compatible
     bad_shapes = _matmul_incompatible
+
+
+class TestProject(test_tools.TestProject):
+    specialisations = [
+        pytest.param(project_CuState, CuState, CuState),
+    ]
+
+    shapes = _unary_pure
+    bad_shapes = _unary_mixed
 
 
 def test_isherm():
