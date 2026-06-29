@@ -21,8 +21,7 @@ class CuQobjEvo(QobjEvo):
     def __init__(self, qobjevo):
         qobjevo = qobjevo.to(CuOperator)
         as_list = qobjevo.to_list()
-        self._dims = qobjevo._dims
-        self.shape = qobjevo.shape
+        super().__init__(qobjevo)
         self.action_ready = False
         self.expect_ready = False
         if qobjevo.issuper:
@@ -49,7 +48,6 @@ class CuQobjEvo(QobjEvo):
             else:
                 oper = wrap_funcelement(*part, dual, self.hilbert_space_dims)
                 self.operator.append(oper)
-
 
     def matmul_data(self, t, state, out=None, scale=1.):
         if scale != 1.:

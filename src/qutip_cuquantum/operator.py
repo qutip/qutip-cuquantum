@@ -755,6 +755,18 @@ def identity_like(data, /):
     new.terms.append(Term([], 1.))
     return new
 
+
+@_data.iszero.register(CuOperator)
+def iszero_CuOperator(state, tol=...):
+    for term in state.terms:
+        if term.factor != 0:
+            return False
+        # TODO:
+        # Add check for cases where Elementary matrices are zeros
+        # Add check for cancelling terms
+    return True
+
+
 ###############################################################################
 ###############################################################################
 
