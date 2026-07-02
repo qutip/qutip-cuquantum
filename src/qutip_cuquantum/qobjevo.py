@@ -18,7 +18,7 @@ class CuQobjEvo(QobjEvo):
 
     It only support list based `QobjEvo`.
     """
-    def __init__(self, qobjevo):
+    def __init__(self, qobjevo, batch_size=1):
         qobjevo = qobjevo.to(CuOperator)
         as_list = qobjevo.to_list()
         self._dims = qobjevo._dims
@@ -37,7 +37,7 @@ class CuQobjEvo(QobjEvo):
             if isinstance(part, Qobj):
                 self.operator.append(part.data.to_OperatorTerm(
                     dual, hilbert_dims=self.hilbert_space_dims
-                ))
+                ), batch_size=batch_size)
             elif (
                 isinstance(part, list) and isinstance(part[0], Qobj)
             ):
@@ -45,10 +45,10 @@ class CuQobjEvo(QobjEvo):
                 coeff = wrap_coeff(part[1])
                 self.operator.append(qobj.data.to_OperatorTerm(
                     dual, hilbert_dims=self.hilbert_space_dims
-                ), coeff)
+                ), coeff, batch_size=batch_size)
             else:
                 oper = wrap_funcelement(*part, dual, self.hilbert_space_dims)
-                self.operator.append(oper)
+                self.operator.append(oper, batch_size=batch_size)
 
 
     def matmul_data(self, t, state, out=None, scale=1.):

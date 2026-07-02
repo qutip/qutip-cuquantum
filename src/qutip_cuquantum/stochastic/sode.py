@@ -11,6 +11,7 @@ from ..state import CuState
 from ..qobjevo import CuQobjEvo
 import warnings
 from .system import PyStochasticOpenSystem
+from qutip.core.cy.coefficient import FunctionCoefficient
 
 
 class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
@@ -71,10 +72,6 @@ class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
         self.rhs._register_feedback(self.wiener)
         if self.rhs.issuper:
             rhs = self.rhs(self.options)
-            #rhs = PyStochasticOpenSystem(
-            #    self.rhs.H, self.rhs.sc_ops, self.rhs.c_ops,
-            #    options.get("derr_dt", 1e-6)
-            #)
         else:
             raise NotImplementedError("Only open system are implemented yet.")
         self.step_func = self.stepper(rhs, **stepper_opt).run
@@ -616,13 +613,14 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
     def _make_operators(self):
         rhs = self.rhs
         H = rhs.H
+        batch = self.options["batch"]
         c_ops = rhs.c_ops
         sc_ops = rhs.sc_ops
         N = len(sc_ops)
         self.num_collapses = N
         dt = self.options["dt"]
-        dy = np.zeros(N, dtype=float)
-        dw = np.zeros((N, N), dtype=float)
+        dy = np.zeros((N, batch), dtype=float)
+        dw = np.zeros((N, N, batch), dtype=float)
         self.dy = dy
         self.dw = dw
 
@@ -631,22 +629,38 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
                             " use a premade Liouvillian.")
         self._issuper = rhs.issuper
 
-        def _y(t, _i):
-            return dy[i]
+        def _y(t, _i, cu_args):
+            if cu_args.shape[1] != dy.shape[1]:
+                return np.zeros(cu_args.shape[1], dtype=float)
+            return dy[_i]
 
-        def _w(t, _i, _j):
-            return dw[i, j]
+        def _w(t, _i, _j, cu_args):
+            if cu_args.shape[1] != dy.shape[1]:
+                return np.zeros(cu_args.shape[1], dtype=float)
+            return dw[_i, _j]
 
-        M = 1 - 1j * dt * H
+        ML = 1 - 1j * dt * H
+        MR = 1 + 1j * dt * H.dag()
         for op in c_ops:
-            M -= op.dag() @ op * (0.5 * dt)
+            ML -= op.dag() @ op * (0.5 * dt)
+            MR -= op.dag() @ op * (0.5 * dt)
         for i, op in enumerate(sc_ops):
-            M -= op.dag() @ op * (0.5 * dt)
-            M += op * qt.coefficient(_y, args={"_i": i})
+            ML -= op.dag() @ op * (0.5 * dt)
+            MR -= op.dag() @ op * (0.5 * dt)
+            ML += op * FunctionCoefficient(_y, args={"_i": i, "cu_args": None})
+            MR += op.dag() * FunctionCoefficient(
+                _y, args={"_i": i, "cu_args": None}
+            )
             for j in range(i+1):
-                M += (
-                    (op @ sc_ops[j])
-                    * qt.coefficient(_w, args={"_i": i, "_j": j})
+                ML += (
+                    (op @ sc_ops[j]) * FunctionCoefficient(
+                        _w, args={"_i": i, "_j": j, "cu_args": None}
+                    )
+                )
+                MR += (
+                    (sc_ops[j].dag() @ op.dag()) * FunctionCoefficient(
+                        _w, args={"_i": i, "_j": j, "cu_args": None}
+                    )
                 )
 
         self.C = 0
@@ -655,8 +669,8 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         if c_ops:
             self.C = CuQobjEvo(self.C)
 
-        self.M_l = CuQobjEvo(qt.spre(M))
-        self.M_r = CuQobjEvo(qt.spost(M.dag()))
+        self.M_l = CuQobjEvo(qt.spre(ML), batch)
+        self.M_r = CuQobjEvo(qt.spost(MR), batch)
         self.cpcds = [CuQobjEvo((op + op.dag()) * dt) for op in sc_ops]
 
     def set_state(self, t, state0, generator):
@@ -675,23 +689,23 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
             Random number generator.
         """
         self.t = t
-        self.batch = self.options["batch"]
+        batch = self.options["batch"]
         if isinstance(generator, Wiener):
             self.wiener = generator
         else:
             self.wiener = Wiener(
                 t, self.options["dt"], generator,
-                (1, self.num_collapses, self.batch)
+                (1, self.num_collapses, batch)
             )
         self.rhs._register_feedback(self.wiener)
         self._make_operators()
         self._is_set = True
 
-        if self.batch == 1:
+        if batch == 1:
             self.state = CuState(state0, self.M_l.hilbert_space_dims)
         else:
             state0 = CuState(state0, self.M_l.hilbert_space_dims)
-            self.state = batch_copy(state0, self.batch)
+            self.state = batch_copy(state0, batch)
 
         self._tmp = _data.zeros_like(self.state)
         self._out = _data.zeros_like(self.state)
@@ -723,7 +737,6 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         return self.t, self.state, np.sum(dW, axis=0)
 
     def _step(self, t, state, dt, dW):
-        # print("step", dt, dW)
         dy = np.array([
             op.expect_data(t, state).real + dw
             for op, dw in zip(self.cpcds, dW)
@@ -732,8 +745,11 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         N = self.num_collapses
         ncol = state.shape[1]
 
-        self.dy[:] = dy[:, 0]
-        self.dw[:, :] = self.dy[:, None] @ self.dy[None, :] - np.eye(N) * dt
+        self.dy[:, :] = dy
+        self.dw[:, :, :] = (
+            self.dy[:, None, :] * self.dy[None, :, :]
+            - np.eye(N)[:, :, None] * dt
+        )
         for i in range(N):
             self.dw[i, i] /= 2
 
@@ -741,18 +757,11 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         self._out = _data.imul(self._out, 0)
 
         self._tmp = self.M_l.matmul_data(t, state, self._tmp)
-        # print("l", _data.trace_oper_ket(self._tmp))
-        # print(self._tmp.to_array().reshape((4, 4), order="F"))
         self._out = self.M_r.matmul_data(t, self._tmp, self._out)
-        # self._out = self.M_r.matmul_data(t, state, self._out)
-        # print("r", _data.trace_oper_ket(self._out))
-        # print(self._out.to_array().reshape((4, 4), order="F"))
         if self.C:
             self._out = self.C.matmul_data(t, state, self._out)
 
         self._out = _data.imul(self._out, 1/_data.trace_oper_ket(self._out))
-        # print("after", self._out.to_array())
-        # print()
         return self._out
 
     @property
