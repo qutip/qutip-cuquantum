@@ -9,7 +9,7 @@ from .smesolve import SMESolver
 from .batching import batch_copy
 from ..state import CuState
 from ..qobjevo import CuQobjEvo
-
+import warnings
 from .system import PyStochasticOpenSystem
 
 
@@ -643,7 +643,7 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         for i, op in enumerate(sc_ops):
             M -= op.dag() @ op * (0.5 * dt)
             M += op * qt.coefficient(_y, args={"_i": i})
-            for j in range(i, len(sc_ops)):
+            for j in range(i+1):
                 M += (
                     (op @ sc_ops[j])
                     * qt.coefficient(_w, args={"_i": i, "_j": j})
@@ -651,7 +651,8 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
 
         self.C = 0
         for op in c_ops:
-            self.C += qt.sprepost(op, op.dag())
+            self.C += qt.sprepost(op, op.dag()) * dt
+        if c_ops:
             self.C = CuQobjEvo(self.C)
 
         self.M_l = CuQobjEvo(qt.spre(M))
@@ -722,8 +723,9 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         return self.t, self.state, np.sum(dW, axis=0)
 
     def _step(self, t, state, dt, dW):
+        # print("step", dt, dW)
         dy = np.array([
-            op.expect_data(t, state) * dt + dw
+            op.expect_data(t, state).real + dw
             for op, dw in zip(self.cpcds, dW)
         ])
 
@@ -731,7 +733,7 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         ncol = state.shape[1]
 
         self.dy[:] = dy[:, 0]
-        self.dw[:] = self.dy[:, None] @ self.dy[None, :] - np.eye(N) * dt
+        self.dw[:, :] = self.dy[:, None] @ self.dy[None, :] - np.eye(N) * dt
         for i in range(N):
             self.dw[i, i] /= 2
 
@@ -739,11 +741,18 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         self._out = _data.imul(self._out, 0)
 
         self._tmp = self.M_l.matmul_data(t, state, self._tmp)
+        # print("l", _data.trace_oper_ket(self._tmp))
+        # print(self._tmp.to_array().reshape((4, 4), order="F"))
         self._out = self.M_r.matmul_data(t, self._tmp, self._out)
+        # self._out = self.M_r.matmul_data(t, state, self._out)
+        # print("r", _data.trace_oper_ket(self._out))
+        # print(self._out.to_array().reshape((4, 4), order="F"))
         if self.C:
             self._out = self.C.matmul_data(t, state, self._out)
 
-        self._out = _data.imul(self._out, _data.trace_oper_ket(self._out))
+        self._out = _data.imul(self._out, 1/_data.trace_oper_ket(self._out))
+        # print("after", self._out.to_array())
+        # print()
         return self._out
 
     @property
