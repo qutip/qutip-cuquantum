@@ -717,15 +717,6 @@ def dimensions_CuOperator(matrix, hilbert, order):
     return new
 
 
-@_data.iszero.register(CuOperator)
-def iszero_CuOperator(state):
-    for term in state.terms:
-        if term.factor != 0:
-            return False
-        # TODO: Would also be false if all term's operators are zeros
-    return True
-
-
 @_data.isequal.register(CuOperator)
 def isequal_CuOperator(left, right, atol=-1, rtol=-1):
     if not _compare_hilbert(left.hilbert_dims, right.hilbert_dims):
@@ -764,6 +755,18 @@ def identity_like(data, /):
     new = CuOperator(hilbert_dims=data.hilbert_dims)
     new.terms.append(Term([], 1.))
     return new
+
+
+@_data.iszero.register(CuOperator)
+def iszero_CuOperator(state, tol=...):
+    for term in state.terms:
+        if term.factor != 0:
+            return False
+        # TODO:
+        # Add check for cases where Elementary matrices are zeros
+        # Add check for cancelling terms
+    return True
+
 
 ###############################################################################
 ###############################################################################

@@ -262,7 +262,7 @@ def trace_cuState(mat):
 
 @_data.trace_oper_ket.register(CuState)
 def trace_oper_ket_cuState(mat):
-    return mat.base.trace()
+    return mat.base.trace().get()
 
 
 @_data.inner.register(CuState)
@@ -402,7 +402,6 @@ def matmul_cuState(left, right, scale=1):
         )
 
     output_shape = (left.shape[0], right.shape[1])
-    ctx = settings.cuDensity["ctx"]
     if(left.shape[0] == 1 and right.shape[1] == 1):
         # Scalar case
         hilbert_dims = (1,)
@@ -417,14 +416,13 @@ def matmul_cuState(left, right, scale=1):
 
 
 @_data.project.register(CuState)
-def project(pure):
+def project_CuState(pure):
     if pure.shape[1] != 1:
         pure = pure.adjoint()
     if pure.shape[1] != 1:
         raise ValueError("state must be a ket or a bra.")
 
     output_shape = (pure.shape[0], pure.shape[0])
-    ctx = settings.cuDensity["ctx"]
     hilbert_dims = pure.base.hilbert_space_dims
 
     left = pure.to_cupy()
