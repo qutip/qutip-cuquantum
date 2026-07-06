@@ -2,7 +2,7 @@ import cupy as cp
 from cuquantum.densitymat import WorkStream
 from ..state import CuState
 from qutip import settings
-
+from qutip.core.cy.coefficient import FunctionCoefficient, Coefficient
 
 def get_batch_size(
     ctx : WorkStream,
@@ -60,3 +60,72 @@ def batch_copy(state: CuState, batch_size: int):
         batched.view()[..., i] = state.base.view()[..., 0]
 
     return CuState(batched, copy=False, shape=state.shape)
+
+
+class BatchCoefficient(FunctionCoefficient):
+    def __init__(self, *args_, **kwargs):
+        super().__init__(*args_, **kwargs)
+        self._conj : bool = False
+        self.other_mul : Coefficient = None
+        self.other_add : Coefficient = None
+
+    def __call__(self, t, **kw):
+        return self._call(t, **kw)
+
+    def _call(self, t, **kw):
+        batch = super().__call__(t, **kw)
+        if self._conj:
+            batch = batch.conj()
+        if self.other_mul:
+            batch = batch * self.other_mul(t, **kw)
+        if self.other_add:
+            batch = batch + self.other_add(t, **kw)
+        return batch
+
+    def __add__(self, other):
+        if not isinstance(other, Coefficient):
+            return NotImplemented
+        out = self.copy()
+        out._conj = self._conj
+        out.other_mul = self.other_mul
+        if self.other_add:
+            out.other_add = self.other_add + other
+        else:
+            out.other_add = other
+        return out
+
+    def __mul__(self, other):
+        if not isinstance(other, Coefficient):
+            return NotImplemented
+        out = self.copy()
+        out._conj = self._conj
+        if self.other_mul:
+            out.other_mul = self.other_mul * other
+        else:
+            out.other_mul = other
+        if self.other_add:
+            out.other_add = self.other_add * other
+        return out
+
+    def conj(self, other):
+        if not isinstance(other, Coefficient):
+            return NotImplemented
+        out = self.copy()
+        out._conj = not self._conj
+        if self.other_mul:
+            out.other_mul = self.other_mul.conj()
+        if self.other_add:
+            out.other_add = self.other_add.conj()
+        return out
+
+    def copy(self):
+        _f_parameters, _f_pythonic, args, func, _ = self.__reduce__()[2]
+        out = BatchCoefficient(
+            func, args,
+            _f_pythonic=_f_pythonic,
+            _f_parameters=_f_parameters,
+        )
+        out.conj = self.conj
+        out.other_mul = self.other_mul
+        out.other_add = self.other_add
+        return out

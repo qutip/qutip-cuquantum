@@ -47,7 +47,10 @@ class CuState(Data):
                 arg = arg.copy()
             base = arg.base
 
-        elif (CuPyDense is not None and isinstance(arg, CuPyDense)) or isinstance(arg, cp.ndarray):
+        elif (
+            (CuPyDense is not None and isinstance(arg, CuPyDense))
+            or isinstance(arg, cp.ndarray)
+        ):
             if CuPyDense is not None and isinstance(arg, CuPyDense):
                 arg = arg._cp
 
@@ -65,9 +68,15 @@ class CuState(Data):
                     hilbert_dims = (arg.shape[0],)
 
             if arg.shape[0] != 1 and arg.shape[1] != 1:
-                is_hilbert_dim_matching = (arg.shape[0] == np.prod(hilbert_dims) and arg.shape[1] == np.prod(hilbert_dims))
+                is_hilbert_dim_matching = (
+                    arg.shape[0] == np.prod(hilbert_dims)
+                    and arg.shape[1] == np.prod(hilbert_dims)
+                )
                 if not is_hilbert_dim_matching:
-                    raise ValueError(f"Shape {arg.shape} does not match hilbert_dims {hilbert_dims} for mixed state")
+                    raise ValueError(
+                        f"Shape {arg.shape} does not match hilbert_dims"
+                        f" {hilbert_dims} for mixed state"
+                    )
                 base = DenseMixedState(ctx, hilbert_dims, 1, "complex128")
                 sizes, offsets = base.local_info
                 sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
@@ -89,10 +98,16 @@ class CuState(Data):
                     )
 
             else:
-                is_hilbert_dim_matching = ((arg.shape[1] == 1 and arg.shape[0] == np.prod(hilbert_dims)) or
-                                           (arg.shape[0] == 1 and arg.shape[1] == np.prod(hilbert_dims)))
+                hilber_size = np.prod(hilbert_dims)
+                is_hilbert_dim_matching = (
+                    (arg.shape[1] == 1 and arg.shape[0] == hilber_size) or
+                    (arg.shape[0] == 1 and arg.shape[1] == hilber_size)
+                )
                 if not is_hilbert_dim_matching:
-                    raise ValueError(f"Shape {arg.shape} does not match hilbert_dims {hilbert_dims} for pure state")
+                    raise ValueError(
+                        f"Shape {arg.shape} does not match hilbert_dims "
+                        f"{hilbert_dims} for pure state"
+                    )
 
                 base = DensePureState(ctx, hilbert_dims, 1, "complex128")
                 sizes, offsets = base.local_info
@@ -168,11 +183,15 @@ class CuState(Data):
         local_tensor = self.base.view()[..., 0]
         if self.base.local_info[0][:-1] != tensor_shape:
             if MPI is None:
-                raise ImportError("mpi4py is not imported. Distributed tensor assembly requires mpi4py.")
+                raise ImportError(
+                    "mpi4py is not imported. "
+                    "Distributed tensor assembly requires mpi4py."
+                )
             comm = MPI.COMM_WORLD
             tensor = cp.empty(tensor_shape, dtype=cp.complex128)
             sizes, offsets = self.base.local_info
-            local_sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
+            local_sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))
+            local_sls = local_sls[:-1]
             all_sls = comm.allgather(local_sls)
             all_tensor = comm.allgather(local_tensor)
             for rank in range(comm.Get_size()):
@@ -225,12 +244,19 @@ class CuState(Data):
 
     def transpose(self):
         arr = self.to_cupy().transpose()
-        return CuState(arr, hilbert_dims=self.base.hilbert_space_dims, shape=(self.shape[1], self.shape[0]))
-
+        return CuState(
+            arr,
+            hilbert_dims=self.base.hilbert_space_dims,
+            shape=(self.shape[1], self.shape[0])
+        )
 
     def adjoint(self):
         arr = self.to_cupy().transpose().conj()
-        return CuState(arr, hilbert_dims=self.base.hilbert_space_dims, shape=(self.shape[1], self.shape[0]))
+        return CuState(
+            arr,
+            hilbert_dims=self.base.hilbert_space_dims,
+            shape=(self.shape[1], self.shape[0])
+        )
 
 
 def CuState_from_Dense(mat):

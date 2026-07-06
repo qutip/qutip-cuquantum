@@ -21,6 +21,8 @@ class CuQobjEvo(QobjEvo):
     def __init__(self, qobjevo, batch_size=1):
         qobjevo = qobjevo.to(CuOperator)
         as_list = qobjevo.to_list()
+        # TODO: Work fine, but the matrices are stored both in qutip's cython
+        # object and cuQuantum's operator. Not memory efficient.
         super().__init__(qobjevo)
         self.action_ready = False
         self.expect_ready = False
@@ -118,7 +120,6 @@ class CuQobjEvo(QobjEvo):
             return out.real
         return out
 
-
     def expect_data(self, t, state):
         if not isinstance(state, CuState):
             state = CuState(state, hilbert_dims=self.hilbert_space_dims)
@@ -155,6 +156,15 @@ class CuQobjEvo(QobjEvo):
 
     def trans(self):
         raise NotImplementedError
+
+    def __add__(self, other):
+        if not isinstance(other, CuQobjEvo):
+            return NotImplemented
+        qevo = QobjEvo.__add__(self, other)
+        out = CuQobjEvo(qevo)  # create a CuQobjEvo with merged metadata
+
+        out.operator = self.operator + other.operator
+        return out
 
     @property
     def dtype(self):

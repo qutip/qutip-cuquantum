@@ -6,12 +6,13 @@ from qutip.solver.sode.sode import _Explicit_Simple_Integrator
 from qutip.solver.sode._noise import Wiener, PreSetWiener
 from qutip.solver.integrator.integrator import Integrator
 from .smesolve import SMESolver
-from .batching import batch_copy
+from .batching import batch_copy, BatchCoefficient
 from ..state import CuState
 from ..qobjevo import CuQobjEvo
 import warnings
 from .system import PyStochasticOpenSystem
 from qutip.core.cy.coefficient import FunctionCoefficient
+import qutip
 
 
 class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
@@ -578,7 +579,6 @@ class PredCorr_SODE(Explicit_Simple_Integrator_Batched):
         Integrator.options.fset(self, new_options)
 
 
-import qutip as qt
 class RouchonSODE(Explicit_Simple_Integrator_Batched):
     """
     Stochastic integration method keeping the positivity of the density matrix.
@@ -639,38 +639,57 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
                 return np.zeros(cu_args.shape[1], dtype=float)
             return dw[_i, _j]
 
-        ML = 1 - 1j * dt * H
-        MR = 1 + 1j * dt * H.dag()
+        M = 1 - 1j * dt * H
+        ML = 0
+        MR = 0
         for op in c_ops:
-            ML -= op.dag() @ op * (0.5 * dt)
-            MR -= op.dag() @ op * (0.5 * dt)
+            M -= op.dag() @ op * (0.5 * dt)
         for i, op in enumerate(sc_ops):
-            ML -= op.dag() @ op * (0.5 * dt)
-            MR -= op.dag() @ op * (0.5 * dt)
-            ML += op * FunctionCoefficient(_y, args={"_i": i, "cu_args": None})
-            MR += op.dag() * FunctionCoefficient(
-                _y, args={"_i": i, "cu_args": None}
-            )
+            M -= op.dag() @ op * (0.5 * dt)
+            coeff = BatchCoefficient(_y, args={"_i": i, "cu_args": None})
+
+            for part in op.to_list():
+                if isinstance(part, qutip.Qobj):
+                    ML += qutip.QobjEvo([part, coeff])
+                    MR += qutip.QobjEvo([part.dag(), coeff])
+                elif isinstance(part, list):
+                    qobj, p_coeff = part
+                    ML += qutip.QobjEvo([qobj, coeff * p_coeff])
+                    MR += qutip.QobjEvo([qobj.dag(), coeff * p_coeff.conj()])
+                else:
+                    raise NotImplementedError
+
+
+            #ML += op * FunctionCoefficient(_y, args={"_i": i, "cu_args": None})
+            #MR += op.dag() * FunctionCoefficient(
+            #    _y, args={"_i": i, "cu_args": None}
+            #)
             for j in range(i+1):
-                ML += (
-                    (op @ sc_ops[j]) * FunctionCoefficient(
-                        _w, args={"_i": i, "_j": j, "cu_args": None}
-                    )
+                coeff = BatchCoefficient(
+                    _w, args={"_i": i, "_j": j, "cu_args": None}
                 )
-                MR += (
-                    (sc_ops[j].dag() @ op.dag()) * FunctionCoefficient(
-                        _w, args={"_i": i, "_j": j, "cu_args": None}
-                    )
-                )
+                oper = op @ sc_ops[j]
+                for part in oper.to_list():
+                    if isinstance(part, qutip.Qobj):
+                        ML += qutip.QobjEvo([part, coeff])
+                        MR += qutip.QobjEvo([part.dag(), coeff])
+                    elif isinstance(part, list):
+                        qobj, p_coeff = part
+                        ML += qutip.QobjEvo([qobj, coeff * p_coeff])
+                        MR += qutip.QobjEvo([qobj.dag(), coeff * p_coeff.conj()])
+                    else:
+                        raise NotImplementedError
+                # ML += coeff
+                # MR += coeff * (sc_ops[j].dag() @ op.dag())
 
         self.C = 0
         for op in c_ops:
-            self.C += qt.sprepost(op, op.dag()) * dt
+            self.C += qutip.sprepost(op, op.dag()) * dt
         if c_ops:
             self.C = CuQobjEvo(self.C)
 
-        self.M_l = CuQobjEvo(qt.spre(ML), batch)
-        self.M_r = CuQobjEvo(qt.spost(MR), batch)
+        self.M_l = CuQobjEvo(qutip.spre(ML), batch) + CuQobjEvo(qutip.spre(M), 1)
+        self.M_r = CuQobjEvo(qutip.spost(MR), batch) + CuQobjEvo(qutip.spost(M.dag()), 1)
         self.cpcds = [CuQobjEvo((op + op.dag()) * dt) for op in sc_ops]
 
     def set_state(self, t, state0, generator):

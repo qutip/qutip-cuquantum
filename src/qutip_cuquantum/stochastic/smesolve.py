@@ -26,6 +26,7 @@ from .system import PyStochasticOpenSystem
 from ..qobjevo import CuQobjEvo
 from ..state import CuState
 
+
 class StochasticTrajResult(Result):
     def _post_init(self, m_ops=(), dw_factor=(), heterodyne=False):
         super()._post_init()
