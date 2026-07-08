@@ -4,8 +4,15 @@ import qutip_cuquantum
 import cuquantum.densitymat as cu_dense
 import pytest
 
-cudm_ctx = cu_dense.WorkStream()
-qutip_cuquantum.set_as_default(cudm_ctx)
+#cudm_ctx = cu_dense.WorkStream()
+#qutip_cuquantum.set_as_default(cudm_ctx)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def global_gpu_backend():
+    cudm_ctx = cu_dense.WorkStream()
+    with qutip_cuquantum.CuQuantumBackend(cudm_ctx):
+        yield
 
 
 def test_sesolve_cte():
@@ -17,8 +24,8 @@ def test_sesolve_cte():
     )
 
     result = qutip.sesolve(
-        H, 
-        qutip.rand_ket([2, 2, 2]), 
+        H,
+        qutip.rand_ket([2, 2, 2]),
         np.linspace(0, 1, 11),
         e_ops=[qutip.num(2) & qutip.qeye(2) & qutip.qeye(2)]
     )
@@ -40,8 +47,8 @@ def test_mesolve_cte():
     ]
 
     result = qutip.mesolve(
-        H, 
-        qutip.rand_ket([2, 2, 2]), 
+        H,
+        qutip.rand_ket([2, 2, 2]),
         np.linspace(0, 1, 11),
         c_ops=c_ops,
         e_ops=[qutip.num(2) & qutip.qeye(2) & qutip.qeye(2)]
@@ -95,8 +102,8 @@ def test_mesolve_td_c_op():
     ]
 
     result = qutip.mesolve(
-        H, 
-        qutip.rand_ket([2, 2, 2]), 
+        H,
+        qutip.rand_ket([2, 2, 2]),
         np.linspace(0, 1, 11),
         c_ops=c_ops,
         e_ops=[qutip.num(2) & qutip.qeye(2) & qutip.qeye(2)]
@@ -125,8 +132,8 @@ def test_mesolve_H_func():
     ]
 
     result = qutip.mesolve(
-        H, 
-        qutip.rand_ket([2, 2, 2]), 
+        H,
+        qutip.rand_ket([2, 2, 2]),
         np.linspace(0, 1, 11),
         c_ops=c_ops,
         e_ops=[qutip.num(2) & qutip.qeye(2) & qutip.qeye(2)]
@@ -137,19 +144,17 @@ def test_mesolve_H_func():
 
 def test_mcsolve():
     H = (
-        (qutip.sigmaz() & qutip.qeye(3)) + 
+        (qutip.sigmaz() & qutip.qeye(3)) +
         (qutip.qeye(2) & qutip.num(3)) +
         (qutip.sigmam() & qutip.create(3)) +
         (qutip.sigmap() & qutip.destroy(3))
     )
-    
+
     result = qutip.mcsolve(
-        H, qutip.basis([2, 3]), np.linspace(0, 1, 11), 
-        c_ops=[qutip.qeye(2) & qutip.num(3)], 
+        H, qutip.basis([2, 3]), np.linspace(0, 1, 11),
+        c_ops=[qutip.qeye(2) & qutip.num(3)],
         e_ops=[qutip.destroy(2) & qutip.destroy(3)],
         ntraj = 10
     )
     assert len(result.expect) == 1
     assert len(result.expect[0]) == 11
-
-

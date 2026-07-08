@@ -23,9 +23,7 @@ import qutip.tests.core.data.test_mathematics as test_tools
 import qutip.tests.core.data.test_norm as test_norm
 
 
-
 qutip.settings.cuDensity["ctx"] = cudense.WorkStream()
-
 
 
 test_tools._ALL_CASES = {

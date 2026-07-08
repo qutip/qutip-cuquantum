@@ -37,7 +37,7 @@ class StochasticTrajResult(Result):
             self.m_expect = []
             self.dW_factor = dw_factor
             for op in m_ops:
-                f = self._e_op_func(op)
+                f = self._e_op_func(CuQobjEvo(QobjEvo(op, copy=False)))
                 self.m_expect.append([])
                 self.m_ops.append(ExpectOp(op, f, self.m_expect[-1].append))
                 self.add_processor(self.m_ops[-1]._store)
@@ -62,12 +62,13 @@ class StochasticTrajResult(Result):
         for heterodyne detection.
         """
         W = np.zeros(
-            (self.noise[0].shape[0], len(self.times)),
+            (self.batch_size, self.noise[0].shape[0], len(self.times)),
             dtype=np.float64
         )
-        np.cumsum(np.array(self.noise).T, axis=1, out=W[:, 1:])
+        np.cumsum(np.array(self.noise).T, axis=1, out=W[:, :, 1:])
         if self.heterodyne:
-            W = W.reshape(-1, 2, W.shape[1])
+            num_col = self.noise[0].shape[0]
+            W = W.reshape(self.batch_size, num_col//2, 2, W.shape[2])
         return W
 
     @property
@@ -83,7 +84,8 @@ class StochasticTrajResult(Result):
         """
         noise = np.array(self.noise).T
         if self.heterodyne:
-            return noise.reshape(-1, 2, noise.shape[1])
+            num_col = self.noise[0].shape[0]
+            return noise.reshape(self.batch_size, num_col//2, 2, noise.shape[2])
         return noise
 
     @property
@@ -97,22 +99,27 @@ class StochasticTrajResult(Result):
             (len(sc_ops), 2, len(tlist)-1)
         for heterodyne detection.
         """
+        if self.batch_size == 1:
+            # (batch_size, num_m_ops, num_times)
+            m_expect = np.array(self.m_expect)[None, :, :]
+        else:
+            m_expect = np.array(self.m_expect).transpose(2, 0, 1)
         if not self.options["store_measurement"]:
             return None
         elif len(self.m_ops) == 0:
             if self.heterodyne:
-                return np.empty(shape=(0, 2, len(self.times) - 1))
+                return np.empty(shape=(self.batch_size, 0, 2, len(self.times) - 1))
             else:
-                return np.empty(shape=(0, len(self.times) - 1))
+                return np.empty(shape=(self.batch_size, 0, len(self.times) - 1))
         elif self.options["store_measurement"] == "start":
-            m_expect = np.array(self.m_expect)[:, :-1]
+            m_expect = m_expect[:, :, :-1]
         elif self.options["store_measurement"] == "middle":
             m_expect = np.apply_along_axis(
                 lambda m: np.convolve(m, [0.5, 0.5], "valid"),
-                axis=1, arr=self.m_expect,
+                axis=2, arr=m_expect,
             )
         elif self.options["store_measurement"] in ["end", True]:
-            m_expect = np.array(self.m_expect)[:, 1:]
+            m_expect = m_expect[:, :, 1:]
         else:
             raise ValueError(
                 "store_measurement must be in {'start', 'middle', 'end', ''}, "
@@ -120,11 +127,11 @@ class StochasticTrajResult(Result):
             )
         noise = np.array(self.noise).T
         noise_scaled = np.einsum(
-            "i,ij,j->ij", self.dW_factor, noise, (1 / np.diff(self.times))
+            "i,bij,j->bij", self.dW_factor, noise, (1 / np.diff(self.times))
         )
         if self.heterodyne:
-            m_expect = m_expect.reshape(-1, 2, m_expect.shape[1])
-            noise_scaled = noise_scaled.reshape(-1, 2, noise_scaled.shape[1])
+            m_expect = m_expect.reshape(self.batch_size, -1, 2, m_expect.shape[2])
+            noise_scaled = noise_scaled.reshape(self.batch_size, -1, 2, noise_scaled.shape[2])
         return m_expect + noise_scaled
 
     @property

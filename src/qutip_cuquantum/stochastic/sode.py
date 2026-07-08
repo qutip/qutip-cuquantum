@@ -108,7 +108,7 @@ class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
         self.state = self.step_func(self.t, self.state, dt, dW, N)
         self.t += dt * N
 
-        return self.t, self.state, np.sum(dW[:, 0, :], axis=0)
+        return self.t, self.state, np.sum(dW[:, 0, :, :], axis=0)
 
 
 class Euler:
@@ -118,7 +118,7 @@ class Euler:
 
     def run(self, t, state, dt, dW, num_step):
         for i in range(num_step):
-            state = self.step(t + i * dt, state, dt, dW[i, :, :])
+            state = self.step(t + i * dt, state, dt, dW[i, :, :, :])
         return state
 
     def step(self, t, state, dt, dW):
@@ -141,7 +141,7 @@ class Euler:
 
         new_state = _data.add(state, a, dt)
         for i in range(system.num_collapse):
-            new_state = _data.add(new_state, b[i], dW[0, i])
+            new_state = _data.add(new_state, b[i], dW[0, i, :])
         return new_state
 
 
@@ -746,7 +746,7 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         if extra > 0.5 * dt:
             # Not a whole number of steps, round to higher
             N += 1
-        dW = self.wiener.dW(self.t, N)[:, 0, :]
+        dW = self.wiener.dW(self.t, N)[:, 0, :, :]
 
         for dw in dW:
             new_state = self._step(self.t, self.state, dt, dw)
