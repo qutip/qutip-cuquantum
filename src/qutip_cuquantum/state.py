@@ -180,8 +180,12 @@ class CuState(Data):
         else:
             tensor_shape = self.base.hilbert_space_dims
 
-        local_tensor = self.base.view()[..., 0]
+        num_batch = self.base.view().shape[-1]
+
+        local_tensor = self.base.view()
         if self.base.local_info[0][:-1] != tensor_shape:
+            if num_batch != 1:
+                raise NotImplementedError
             if MPI is None:
                 raise ImportError(
                     "mpi4py is not imported. "
@@ -193,12 +197,14 @@ class CuState(Data):
             local_sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))
             local_sls = local_sls[:-1]
             all_sls = comm.allgather(local_sls)
-            all_tensor = comm.allgather(local_tensor)
+            all_tensor = comm.allgather(local_tensor[..., 0])
             for rank in range(comm.Get_size()):
                 tensor[all_sls[rank]] = all_tensor[rank]
         else:
             tensor = local_tensor
-        if not as_tensor:
+        if not as_tensor and num_batch != 1:
+            tensor = tensor.reshape(*(self.shape + (num_batch,)), order="C")
+        elif not as_tensor:
             tensor = tensor.reshape(*self.shape, order="C")
         return tensor
 
@@ -331,7 +337,9 @@ def iadd_cuState(left, right, scale=1.):
 
 @_data.norm.frobenius.register(CuState)
 def frobenius_cuState(mat):
-    return float(mat.base.norm()[0])**0.5
+    if mat.base.view().shape[-1] == 1:
+        return float(mat.base.norm()[0])**0.5
+    return mat.base.norm().get()**0.5
 
 
 @_data.norm.l2.register(CuState)

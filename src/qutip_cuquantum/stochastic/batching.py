@@ -4,7 +4,7 @@ from ..state import CuState
 from qutip import settings
 from qutip.core.cy.coefficient import FunctionCoefficient, Coefficient
 
-def get_batch_size(
+def get_max_batch_size(
     ctx : WorkStream,
     state: CuState,
     headroom: float = 0.10,
@@ -52,6 +52,9 @@ def batch_copy(state: CuState, batch_size: int):
     batched = cls(ctx, hilbert_space_dims, batch_size, "complex128")
     batched.allocate_storage()
 
+    if not all(offset == 0 for offset in batched.local_info[1]):
+        raise NotImplementedError
+
     # sizes, offsets = batched.local_info
     # sls = tuple(slice(s, s+n) for s, n in zip(offsets, sizes))[:-1]
     # N = np.prod(sizes)
@@ -60,6 +63,32 @@ def batch_copy(state: CuState, batch_size: int):
         batched.view()[..., i] = state.base.view()[..., 0]
 
     return CuState(batched, copy=False, shape=state.shape)
+
+
+def split_batch(state: CuState):
+    """
+    Return a list of unbatched states
+    """
+    # TODO: No mpi support
+    if not all(offset == 0 for offset in state.local_info[1]):
+        raise NotImplementedError
+
+    ctx = settings.cuDensity["ctx"]
+    cls = state.base.__class__
+    hilbert_space_dims = state.base.hilbert_space_dims
+    num_batch = state.base.view().shape[-1]
+    elements = [
+        cls(ctx, hilbert_space_dims, 1, "complex128")
+        for _ in range(num_batch)
+    ]
+    for i, elem in enumerate(elements):
+        elem.allocate_storage()
+        elem.view()[..., 0] = state.view()[..., i]
+
+    return [
+        CuState(elem, copy=False, shape=state.shape)
+        for elem in elements
+    ]
 
 
 class BatchCoefficient(FunctionCoefficient):

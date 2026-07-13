@@ -2,6 +2,7 @@ from typing import Any
 
 
 import numpy as np
+import scipy.linalg
 import cupy as cp
 import pytest
 import random
@@ -17,6 +18,7 @@ from qutip_cuquantum.state import (
     inner_cuState, wrmn_error_cuState,
     transpose_cuState, adjoint_cuState, matmul_cuState, project_CuState
 )
+from qutip_cuquantum.stochastic.batching import split_batch
 
 import qutip.core.data as _data
 import qutip.tests.core.data.test_mathematics as test_tools
@@ -38,12 +40,14 @@ _unary_pure = [
     (pytest.param((2, StateType.KET), id="simple ket"),),
     (pytest.param((6, 6, StateType.KET), id="2 hilbert ket"),),
     (pytest.param((2, 2, 2, StateType.KET), id="complex ket"),),
+    (pytest.param((2, 2, StateType.BATCH_KET), id="batched ket"),),
 ]
 
 _unary_mixed = [
     (pytest.param((3, StateType.DM), id="scalar dm"),),
     (pytest.param((2, 3, StateType.DM), id="2 hilbert dm"),),
     (pytest.param((2, 3, 4, StateType.DM), id="complex dm"),),
+    (pytest.param((2, 2, StateType.BATCH_DM), id="batched dm"),),
 ]
 
 
@@ -71,6 +75,14 @@ _compatible_hilbert = [
     (
         pytest.param((2, 3, 4, StateType.DM), id="complex dm"),
         pytest.param((2, 3, 4, StateType.DM), id="complex dm"),
+    ),
+    (
+        pytest.param((2, 3, StateType.BATCH_KET), id="batched ket"),
+        pytest.param((2, 3, StateType.BATCH_KET), id="batched ket"),
+    ),
+    (
+        pytest.param((2, 3, StateType.BATCH_DM), id="batched ket"),
+        pytest.param((2, 3, StateType.BATCH_DM), id="batched ket"),
     ),
 ]
 
@@ -101,6 +113,22 @@ _matmul_compatible = [
         pytest.param((2, 3, StateType.BRA), id="2,3 bra"),
         pytest.param((2, 3, StateType.KET), id="2,3 ket"),
     ),
+    (
+        pytest.param((2, 3, StateType.DM), id="2,3 dm"),
+        pytest.param((2, 3, StateType.BATCH_DM), id="2,3 dm"),
+    ),
+    (
+        pytest.param((2, 3, 2, StateType.BATCH_DM), id="2,3,2 dm"),
+        pytest.param((2, 3, 2, StateType.KET), id="2,3,2 ket"),
+    ),
+    (
+        pytest.param((2, 3, StateType.BATCH_KET), id="2,3 ket"),
+        pytest.param((2, 3, StateType.BATCH_BRA), id="2,3 bra"),
+    ),
+    (
+        pytest.param((2, 3, StateType.BATCH_BRA), id="2,3 bra"),
+        pytest.param((2, 3, StateType.BATCH_KET), id="2,3 ket"),
+    ),
 ]
 
 _matmul_incompatible = [
@@ -126,19 +154,24 @@ _matmul_incompatible = [
 _kron_hilbert = [
     (
         pytest.param((2, StateType.KET), id="simple ket"),
-        pytest.param((3, StateType.KET), id="simple ket"),),
+        pytest.param((3, StateType.KET), id="simple ket"),
+    ),
     (
         pytest.param((2, 3, StateType.KET), id="2 hilbert ket"),
-        pytest.param((2, StateType.KET), id="simple ket"),),
+        pytest.param((2, StateType.KET), id="simple ket"),
+    ),
     (
         pytest.param((2, 4, 3, StateType.KET), id="complex ket"),
-        pytest.param((4, 6, StateType.KET), id="complex ket"),),
+        pytest.param((4, 6, StateType.KET), id="complex ket"),
+    ),
     (
         pytest.param((2, StateType.DM), id="simple dm"),
-        pytest.param((2, 3, StateType.DM), id="2 hilbert dm"),),
+        pytest.param((2, 3, StateType.DM), id="2 hilbert dm"),
+    ),
     (
         pytest.param((2, 3, 2, StateType.DM), id="3 hilbert dm"),
-        pytest.param((2, 6, StateType.DM), id="2 hilbert dm"),),
+        pytest.param((2, 6, StateType.DM), id="2 hilbert dm"),
+    ),
     (
         pytest.param((2, 3, 4, StateType.DM), id="complex dm"),
         pytest.param((2, 6, 2, StateType.DM), id="complex dm"),
@@ -147,6 +180,11 @@ _kron_hilbert = [
 
 
 class TestTrace(test_tools.TestTrace):
+    def op_numpy(self, matrix):
+        if len(matrix.shape) == 3:
+            return np.einsum("iik->k", matrix)
+        return np.sum(np.diag(matrix))
+
     specialisations = [
         pytest.param(trace_cuState, CuState, complex),
         pytest.param(trace_oper_ket_cuState, CuState, object),
@@ -157,6 +195,30 @@ class TestTrace(test_tools.TestTrace):
 
 
 class TestAdd(test_tools.TestAdd):
+    @pytest.mark.parametrize('scale', [None, 0.2, 0.5j],
+                             ids=['unscaled', 'scale[real]',
+                                  'scale[complex]'])
+    def test_mathematically_correct(self, op, data_l, data_r, out_type, scale):
+        """
+        Test that the binary operation is mathematically correct for all the
+        known type specialisations, including with scaling.
+        """
+        left, right = data_l(), data_r()
+        if scale is not None:
+            expected = self.op_numpy(left.to_array(), right.to_array(), scale)
+            test = op(left, right, scale)
+        else:
+            expected = self.op_numpy(left.to_array(), right.to_array())
+            test = op(left, right)
+
+        assert isinstance(test, out_type)
+        if issubclass(out_type, CuState):
+            np.testing.assert_allclose(test.to_array(), expected,
+                                       atol=self.atol, rtol=self.rtol)
+        else:
+            np.testing.assert_allclose(test, expected, atol=self.atol,
+                                       rtol=self.rtol)
+
     specialisations = [
         pytest.param(add_cuState, CuState, CuState, CuState),
         pytest.param(iadd_cuState, CuState, CuState, CuState),
@@ -167,6 +229,11 @@ class TestAdd(test_tools.TestAdd):
 
 
 class TestWRMN_error(test_tools.TestWRMN_error):
+    def op_numpy(self, left, right, atol, rtol):
+        return np.linalg.norm(
+            np.abs(left) / (atol + rtol * np.abs(right)), axis=(0, 1)
+        ) / (left.shape[0] * left.shape[1])**0.5
+
     specialisations = [
         pytest.param(wrmn_error_cuState, CuState, CuState, float),
     ]
@@ -176,6 +243,26 @@ class TestWRMN_error(test_tools.TestWRMN_error):
 
 
 class TestMul(test_tools.TestMul):
+
+    @pytest.mark.parametrize('scalar', [
+        pytest.param(0, id='zero'),
+        pytest.param(4.5, id='real'),
+        pytest.param(3j, id='complex'),
+    ])
+    def test_mathematically_correct(self, op, data_m, scalar, out_type):
+        matrix = data_m()
+        expected = self.op_numpy(matrix.to_array(), scalar)
+        test = op(matrix, scalar)
+        assert isinstance(test, out_type)
+        if issubclass(out_type, CuState):
+            assert test.shape == expected.shape[:2]
+            np.testing.assert_allclose(test.to_array(), expected,
+                                       atol=self.atol,
+                                       rtol=self.rtol)
+        else:
+            np.testing.assert_allclose(test, expected, atol=self.atol,
+                                       rtol=self.rtol)
+
     specialisations = [
         pytest.param(mul_cuState, CuState, CuState),
         pytest.param(imul_cuState, CuState, CuState),
@@ -186,8 +273,17 @@ class TestMul(test_tools.TestMul):
 
 
 class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
+    def op_numpy(self, matrix):
+        print(matrix.shape)
+        if len(matrix.shape) == 3:
+            return [
+                scipy.linalg.norm(matrix[:, :, i], 'fro')
+                for i in range(matrix.shape[2])
+            ]
+        return scipy.linalg.norm(matrix, 'fro')
+
     specialisations = [
-        pytest.param(frobenius_cuState, CuState, float),
+        pytest.param(frobenius_cuState, CuState, object),
     ]
 
     shapes = _unary_pure + _unary_mixed
@@ -195,8 +291,16 @@ class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
 
 
 class TestL2Norm(test_norm.TestL2Norm):
+    def op_numpy(self, matrix):
+        if len(matrix.shape) == 3:
+            return np.array([
+                scipy.linalg.norm(matrix[:, :, i], 'fro')
+                for i in range(matrix.shape[2])
+            ])
+        return scipy.linalg.norm(matrix, 'fro')
+
     specialisations = [
-        pytest.param(l2_cuState, CuState, float),
+        pytest.param(l2_cuState, CuState, object),
     ]
 
     shapes = _unary_pure
@@ -204,8 +308,17 @@ class TestL2Norm(test_norm.TestL2Norm):
 
 
 class TestInner(test_tools.TestInner):
+
+    def op_numpy(self, left, right, scalar_is_ket=False):
+        if len(left.shape) == 3:
+            if left.shape[1] == 1:
+                if left.shape[0] != 1 or scalar_is_ket:
+                    left = np.conj(left.transpose(1, 0, 2))
+            return np.einsum("abd,bcd->d", left, right)
+        return super().op_numpy(left, right, scalar_is_ket)
+
     specialisations = [
-        pytest.param(inner_cuState, CuState, CuState, complex),
+        pytest.param(inner_cuState, CuState, CuState, object),
     ]
 
     shapes = [(hilbert[0], hilbert[0]) for hilbert in _unary_pure]
