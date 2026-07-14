@@ -76,7 +76,7 @@ def split_batch(state: CuState):
     ctx = settings.cuDensity["ctx"]
     cls = state.base.__class__
     hilbert_space_dims = state.base.hilbert_space_dims
-    num_batch = state.base.view().shape[-1]
+    num_batch = state.base.batch_size
     elements = [
         cls(ctx, hilbert_space_dims, 1, "complex128")
         for _ in range(num_batch)

@@ -34,24 +34,25 @@ class PyStochasticOpenSystem:
         self.N_root = int(self.state_size**0.5)
         self.dt = derr_dt
 
-    def drift(self, t, state):
-        return self.L.matmul_data(t, state)
+    def drift(self, t, state, out=None):
+        return self.L.matmul_data(t, state, out=out)
 
-    def diffusion(self, t, state):
-        out = []
+    def diffusion(self, t, state, out=None):
+        if out is None:
+            out = [None] * self.num_collapse
+
         for i in range(self.num_collapse):
             c_op = self.c_ops[i]
-            vec = c_op.matmul_data(t, state)
+            vec = c_op.matmul_data(t, state, out[i])
             expect = _data.trace_oper_ket(vec)
-            out.append(_data.add(vec, state, -expect))
+            out[i] = _data.iadd(vec, state, -expect)
         return out
 
     def expect(self, t, state):
         expect = []
         for i in range(self.num_collapse):
             c_op = self.c_ops[i]
-            vec = c_op.matmul_data(t, state)
-            expect.append(trace_oper_ket_cuState(vec))
+            expect.append(c_op.expect_data(t, state))
         return expect
 
     def set_state(self, t, state):

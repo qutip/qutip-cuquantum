@@ -75,7 +75,8 @@ class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
             rhs = self.rhs(self.options)
         else:
             raise NotImplementedError("Only open system are implemented yet.")
-        self.step_func = self.stepper(rhs, **stepper_opt).run
+        stepper = self.stepper(rhs, **stepper_opt)
+        self.step_func = stepper.run
 
         if self.batch == 1:
             self.state = CuState(state0, rhs.L.hilbert_space_dims)
@@ -83,8 +84,10 @@ class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
             state0 = CuState(state0, rhs.L.hilbert_space_dims)
             self.state = batch_copy(state0, self.batch)
 
-        self._is_set = True
+        if hasattr(stepper, "_prepare"):
+            stepper._prepare(self.state)
 
+        self._is_set = True
 
     def integrate(self, t, copy=True):
         delta_t = t - self.t
@@ -116,12 +119,23 @@ class Euler:
         self.system = system
         self.measurement_noise = measurement_noise
 
+    def _prepare(self, state):
+        self.out = _data.zeros_like(state)
+        self.a = _data.zeros_like(state)
+        self.b = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+
     def run(self, t, state, dt, dW, num_step):
+        out = self.out
         for i in range(num_step):
-            state = self.step(t + i * dt, state, dt, dW[i, :, :, :])
+            new_state = self.step(t + i * dt, state, dt, dW[i, :, :, :], out)
+            state, out = new_state, state
+            self.out = out
         return state
 
-    def step(self, t, state, dt, dW):
+    def step(self, t, state, dt, dW, out):
         """Integration scheme:
 
         Basic Euler order 0.5
@@ -131,18 +145,23 @@ class Euler:
         """
         system = self.system
 
-        a = system.drift(t, state)
-        b = system.diffusion(t, state)
+        self.a = imul(self.a, 0)
+        a = system.drift(t, state, self.a)
+        for i in range(system.num_collapse):
+            self.b = [imul(b_, 0) for b_ in self.b]
+        b = system.diffusion(t, state, self.b)
 
         if self.measurement_noise:
             expect = system.expect(t, state)
             for i in range(system.num_collapse):
                 dW[0, i] -= expect[i].real * dt
 
-        new_state = _data.add(state, a, dt)
+        out.base.view()[:] = state.base.view()
+
+        out = _data.iadd(out, a, dt)
         for i in range(system.num_collapse):
-            new_state = _data.add(new_state, b[i], dW[0, i, :])
-        return new_state
+            out = _data.iadd(out, b[i], dW[0, i, :])
+        return out
 
 
 class EulerSODE(Explicit_Simple_Integrator_Batched):
@@ -165,10 +184,28 @@ class EulerSODE(Explicit_Simple_Integrator_Batched):
 
 class Platen(Euler):
 
-    def step(self, t, state, dt, dW):
+    def _prepare(self, state):
+        self.out = _data.zeros_like(state)
+        self.d1 = _data.zeros_like(state)
+        self.tmp = _data.zeros_like(state)
+        self.Vt = self.tmp
+        self.d2 = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+        self.Vp = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+        self.Vm = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+
+    def step(self, t, state, dt, dW, out):
         """Platen rhs function for both master eq and schrodinger eq.
 
-        dV = -iH* (V+Vt)/2 * dt + (d1(V)+d1(Vt))/2 * dt
+        dV = (d1(V)+d1(Vt))/2 * dt
              + (2*d2_i(V)+d2_i(V+)+d2_i(V-))/4 * dW_i
              + (d2_i(V+)-d2_i(V-))/4 * (dW_i**2 -dt) * dt**(-.5)
 
@@ -182,42 +219,64 @@ class Platen(Euler):
         sqrt_dt = np.sqrt(dt)
         sqrt_dt_inv = 0.25 / sqrt_dt
 
-        d1 = _data.add(state, system.drift(t, state), dt)
-        d2 = system.diffusion(t, state)
+        out.base.view()[:] = state.base.view()
+        self.d1.base.view()[:] = state.base.view()
+        self.tmp.base.view()[:] = 0.
+
+        self.tmp = system.drift(t, state, self.tmp)
+        self.d1 = _data.iadd(self.d1, self.tmp, dt)
+
+        self.d2 = [imul(b_, 0) for b_ in self.d2]
+        d2 = system.diffusion(t, state, self.d2)
 
         if self.measurement_noise:
             expect = system.expect(t, state)
             for i in range(system.num_collapse):
                 dW[0, i] -= expect[i].real * dt
 
-        out = _data.mul(d1, 0.5)
-        Vt = d1.copy()
-        Vp = []
-        Vm = []
-        for i in range(num_ops):
-            Vp.append(_data.add(d1, d2[i], sqrt_dt))
-            Vm.append(_data.add(d1, d2[i], -sqrt_dt))
-            Vt = _data.add(Vt, d2[i], dW[0, i])
+        out.base.view()[:] = self.d1.base.view()
+        out = _data.imul(out, 0.5)
+        out = _data.iadd(out, state, 0.5)
+        self.Vt.base.view()[:] = self.d1.base.view()
 
-        d1 = system.drift(t, Vt)
-        out = _data.add(out, d1, 0.5 * dt)
-        out = _data.add(out, state, 0.5)
         for i in range(num_ops):
-            d2p = system.diffusion(t, Vp[i])
-            d2m = system.diffusion(t, Vm[i])
+            self.Vp[i].base.view()[:] = self.d1.base.view()
+            self.Vm[i].base.view()[:] = self.d1.base.view()
+            self.Vp[i] = _data.iadd(self.Vp[i], d2[i], sqrt_dt)
+            self.Vm[i] = _data.iadd(self.Vm[i], d2[i], -sqrt_dt)
+            self.Vt = _data.iadd(self.Vt, d2[i], dW[0, i])
+
+        self.d1.base.view()[:] = 0.
+        self.d1 = system.drift(t, self.Vt, self.d1)
+        out = _data.iadd(out, self.d1, 0.5 * dt)
+
+        for i in range(num_ops):
+            out = _data.iadd(out, d2[i], 0.5 * dW[0, i])
+
+        for i in range(num_ops):
             dw = dW[0, i] * 0.25
-            out = _data.add(out, d2[i], 2 * dw)
+
+            self.d2 = [imul(b_, 0) for b_ in self.d2]
+            d2p = system.diffusion(t, self.Vp[i], self.d2)
 
             for j in range(num_ops):
                 if i == j:
                     dw2 = sqrt_dt_inv * (dW[0, i] * dW[0, j] - dt)
                     dw2p = dw2 + dw
-                    dw2m = -dw2 + dw
                 else:
                     dw2p = sqrt_dt_inv * dW[0, i] * dW[0, j]
-                    dw2m = -dw2p
-                out = _data.add(out, d2p[j], dw2p)
-                out = _data.add(out, d2m[j], dw2m)
+                out = _data.iadd(out, d2p[j], dw2p)
+
+            self.d2 = [imul(b_, 0) for b_ in self.d2]
+            d2m = system.diffusion(t, self.Vm[i], self.d2)
+
+            for j in range(num_ops):
+                if i == j:
+                    dw2 = sqrt_dt_inv * (dW[0, i] * dW[0, j] - dt)
+                    dw2m = -dw2 + dw
+                else:
+                    dw2m = -sqrt_dt_inv * dW[0, i] * dW[0, j]
+                out = _data.iadd(out, d2m[j], dw2m)
 
         return out
 
@@ -247,10 +306,49 @@ class Explicit15(Euler):
     def __init__(self, system):
         self.system = system
 
-    def step(self, t, state, dt, dW):
-        """Chapter 11.2 Eq.
+    def _prepare(self, state):
+        self.out = _data.zeros_like(state)
+        self.d1 = _data.zeros_like(state)
+        self.d1_alt = _data.zeros_like(state)
+        self.tmp = _data.zeros_like(state)
+        self.V = _data.zeros_like(state)
+        self.d2 = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+        self.d2_buf = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+        self.dd2 = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+        self.v2p = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+        self.v2m = [
+            _data.zeros_like(state)
+            for _ in range(self.system.num_collapse)
+        ]
+        self.p2p = [
+            [
+                _data.zeros_like(state)
+                for _ in range(self.system.num_collapse)
+            ]
+            for _ in range(self.system.num_collapse)
+        ]
+        self.p2m = [
+            [
+                _data.zeros_like(state)
+                for _ in range(self.system.num_collapse)
+            ]
+            for _ in range(self.system.num_collapse)
+        ]
 
-        (2.13)
+    def step(self, t, state, dt, dW, out):
+        """Chapter 11.2 Eq. (2.13)
         Numerical Solution of Stochastic Differential Equations
         By Peter E. Kloeden, Eckhard Platen
         """
@@ -270,114 +368,166 @@ class Explicit15(Euler):
             dw[i] = dW[0, i]
             dz[i] = 0.5 * (dW[0, i] + 1.0 / np.sqrt(3) * dW[1, i])
 
-        d1 = system.drift(t, state)
-        d2 = system.diffusion(t, state)
-        dd2 = system.diffusion(t + dt, state)
-        # Euler part
-        out = _data.add(state, d1, dt)
-        for i in range(num_ops):
-            out = _data.add(out, d2[i], dw[i])
+        self.d1.base.view()[:] = 0.
+        d1 = system.drift(t, state, self.d1)
 
-        V = _data.add(state, d1, dt / num_ops)
+        out.base.view()[:] = state.base.view()
+        out = _data.iadd(out, d1, dt)
 
-        v2p = []
-        v2m = []
-        for i in range(num_ops):
-            v2p.append(_data.add(V, d2[i], sqrt_dt))
-            v2m.append(_data.add(V, d2[i], -sqrt_dt))
+        for b_ in self.d2:
+            imul(b_, 0)
+        d2 = system.diffusion(t, state, self.d2)
 
-        p2p = []
-        p2m = []
+        for b_ in self.dd2:
+            imul(b_, 0)
+        dd2 = system.diffusion(t + dt, state, self.dd2)
+
         for i in range(num_ops):
-            d2p = system.diffusion(t, v2p[i])
-            d2m = system.diffusion(t, v2m[i])
-            ddw = (dw[i] * dw[i] - dt) * 0.25 * sqrt_dt_inv  # 1.0
-            out = _data.add(out, d2p[i], ddw)
-            out = _data.add(out, d2m[i], -ddw)
-            temp_p2p = []
-            temp_p2m = []
+            out = _data.iadd(out, d2[i], dw[i])
+
+        self.V.base.view()[:] = state.base.view()
+        V = _data.iadd(self.V, d1, dt / num_ops)
+
+        for i in range(num_ops):
+            self.v2p[i].base.view()[:] = V.base.view()
+            self.v2m[i].base.view()[:] = V.base.view()
+            self.v2p[i] = _data.iadd(self.v2p[i], d2[i], sqrt_dt)
+            self.v2m[i] = _data.iadd(self.v2m[i], d2[i], -sqrt_dt)
+
+        for i in range(num_ops):
+            ddw_base = (dw[i] * dw[i] - dt) * 0.25 * sqrt_dt_inv
+            for b_ in self.d2_buf:
+                imul(b_, 0)
+            d2p = system.diffusion(t, self.v2p[i], self.d2_buf)
+            out = _data.iadd(out, d2p[i], ddw_base)
+
             for j in range(num_ops):
-                temp_p2p.append(_data.add(v2p[i], d2p[j], sqrt_dt))
-                temp_p2m.append(_data.add(v2p[i], d2p[j], -sqrt_dt))
-            p2p.append(temp_p2p)
-            p2m.append(temp_p2m)
+                self.p2p[i][j].base.view()[:] = self.v2p[i].base.view()
+                self.p2m[i][j].base.view()[:] = self.v2p[i].base.view()
+                self.p2p[i][j] = _data.iadd(self.p2p[i][j], d2p[j], sqrt_dt)
+                self.p2m[i][j] = _data.iadd(self.p2m[i][j], d2p[j], -sqrt_dt)
 
-        out = _data.add(out, d1, -0.5 * (num_ops) * dt)
+            for b_ in self.d2_buf:
+                imul(b_, 0)
+
+            d2m = system.diffusion(t, self.v2m[i], self.d2_buf)
+            out = _data.iadd(out, d2m[i], -ddw_base)
+
+        del d2p, d2m
+
+        out = _data.iadd(out, self.d1, -0.5 * num_ops * dt)
 
         for i in range(num_ops):
-            ddz = dz[i] * 0.5 / sqrt_dt  # 1.5
-            ddd = 0.25 * (dw[i] * dw[i] / 3 - dt) * dw[i] / dt  # 1.5
+            ddz = dz[i] * 0.5 / sqrt_dt
+            ddd = 0.25 * (dw[i] * dw[i] / 3 - dt) * dw[i] / dt
+
             for j in range(num_ops):
                 dwp[j] = 0
                 dwm[j] = 0
 
-            d1p = system.drift(t + dt / num_ops, v2p[i])
-            d1m = system.drift(t + dt / num_ops, v2m[i])
+            self.d1_alt.base.view()[:] = 0.
+            d1p = system.drift(t + dt / num_ops, self.v2p[i], self.d1_alt)
+            out = _data.iadd(out, d1p, (0.25 + ddz) * dt)
+            del d1p
 
-            d2p = system.diffusion(t, v2p[i])
-            d2m = system.diffusion(t, v2m[i])
-            d2pp = system.diffusion(t, p2p[i][i])
-            d2mm = system.diffusion(t, p2m[i][i])
+            self.d1_alt.base.view()[:] = 0.
+            d1m = system.drift(t + dt / num_ops, self.v2m[i], self.d1_alt)
+            out = _data.iadd(out, d1m, (0.25 - ddz) * dt)
+            del d1m
 
-            out = _data.add(out, d1p, (0.25 + ddz) * dt)
-            out = _data.add(out, d1m, (0.25 - ddz) * dt)
+            out = _data.iadd(out, dd2[i], dw[i] - dz[i])
+            out = _data.iadd(out, d2[i], dz[i] - dw[i])
 
-            out = _data.add(out, dd2[i], dw[i] - dz[i])
-            out = _data.add(out, d2[i], dz[i] - dw[i])
+            for b_ in self.d2_buf:
+                imul(b_, 0)
+            d2pp = system.diffusion(t, self.p2p[i][i], self.d2_buf)
+            out = _data.iadd(out, d2pp[i], ddd)
+            del d2pp
 
-            out = _data.add(out, d2pp[i], ddd)
-            out = _data.add(out, d2mm[i], -ddd)
+            for b_ in self.d2_buf:
+                imul(b_, 0)
+            d2mm = system.diffusion(t, self.p2m[i][i], self.d2_buf)
+            out = _data.iadd(out, d2mm[i], -ddd)
+            del d2mm
+
             dwp[i] += -ddd
             dwm[i] += ddd
 
             for j in range(num_ops):
-                ddw = 0.5 * (dw[j] - dz[j])  # O(1.5)
-                dwp[j] += ddw
-                dwm[j] += ddw
-                out = _data.add(out, d2[j], -2 * ddw)
+                ddw_j = 0.5 * (dw[j] - dz[j])
+                dwp[j] += ddw_j
+                dwm[j] += ddw_j
+                out = _data.iadd(out, d2[j], -2 * ddw_j)
 
                 if j > i:
-                    ddw = 0.5 * (dw[i] * dw[j]) / sqrt_dt  # O(1.0)
-                    dwp[j] += ddw
-                    dwm[j] += -ddw
+                    ddw_cross = 0.5 * (dw[i] * dw[j]) / sqrt_dt
+                    dwp[j] += ddw_cross
+                    dwm[j] += -ddw_cross
 
-                    ddw = (
-                        0.25 * (dw[j] * dw[j] - dt) * dw[i] / dt
-                    )  # O(1.5)
-                    d2pp = system.diffusion(t, p2p[j][i])
-                    d2mm = system.diffusion(t, p2m[j][i])
-                    out = _data.add(out, d2pp[j], ddw)
-                    out = _data.add(out, d2mm[j], -ddw)
-                    dwp[j] += -ddw
-                    dwm[j] += ddw
+                    ddw_order15 = 0.25 * (dw[j] * dw[j] - dt) * dw[i] / dt
+
+                    for b_ in self.d2_buf:
+                        imul(b_, 0)
+                    d2pp = system.diffusion(t, self.p2p[j][i], self.d2_buf)
+                    out = _data.iadd(out, d2pp[j], ddw_order15)
 
                     for k in range(j + 1, num_ops):
-                        ddw = (
-                            0.5 * dw[i] * dw[j] * dw[k] / dt
-                        )  # O(1.5)
-                        out = _data.add(out, d2pp[k], ddw)
-                        out = _data.add(out, d2mm[k], -ddw)
-                        dwp[k] += -ddw
-                        dwm[k] += ddw
+                        ddw_k = 0.5 * dw[i] * dw[j] * dw[k] / dt
+                        out = _data.iadd(out, d2pp[k], ddw_k)
+                    del d2pp
+
+                    for b_ in self.d2_buf:
+                        imul(b_, 0)
+                    d2mm = system.diffusion(t, self.p2m[j][i], self.d2_buf)
+                    out = _data.iadd(out, d2mm[j], -ddw_order15)
+
+                    for k in range(j + 1, num_ops):
+                        ddw_k = 0.5 * dw[i] * dw[j] * dw[k] / dt
+                        out = _data.iadd(out, d2mm[k], -ddw_k)
+                    del d2mm
+
+                    # Now safely apply updates to noise array coefficients
+                    dwp[j] += -ddw_order15
+                    dwm[j] += ddw_order15
+
+                    for k in range(j + 1, num_ops):
+                        ddw_k = 0.5 * dw[i] * dw[j] * dw[k] / dt
+                        dwp[k] += -ddw_k
+                        dwm[k] += ddw_k
 
                 if j < i:
-                    ddw = (
-                        0.25 * (dw[j] * dw[j] - dt) * dw[i] / dt
-                    )  # O(1.5)
-                    d2pp = system.diffusion(t, p2p[j][i])
-                    d2mm = system.diffusion(t, p2m[j][i])
+                    ddw_order15 = 0.25 * (dw[j] * dw[j] - dt) * dw[i] / dt
 
-                    out = _data.add(out, d2pp[j], ddw)
-                    out = _data.add(out, d2mm[j], -ddw)
-                    dwp[j] += -ddw
-                    dwm[j] += ddw
+                    for b_ in self.d2_buf:
+                        imul(b_, 0)
+                    d2pp = system.diffusion(t, self.p2p[j][i], self.d2_buf)
+                    out = _data.iadd(out, d2pp[j], ddw_order15)
+                    del d2pp
 
+                    for b_ in self.d2_buf:
+                        imul(b_, 0)
+                    d2mm = system.diffusion(t, self.p2m[j][i], self.d2_buf)
+                    out = _data.iadd(out, d2mm[j], -ddw_order15)
+                    del d2mm
+
+                    dwp[j] += -ddw_order15
+                    dwm[j] += ddw_order15
+
+            for b_ in self.d2_buf:
+                imul(b_, 0)
+            d2p = system.diffusion(t, self.v2p[i], self.d2_buf)
             for j in range(num_ops):
-                out = _data.add(out, d2p[j], dwp[j])
-                out = _data.add(out, d2m[j], dwm[j])
+                out = _data.iadd(out, d2p[j], dwp[j])
+            del d2p
+
+            for b_ in self.d2_buf:
+                imul(b_, 0)
+            d2m = system.diffusion(t, self.v2m[i], self.d2_buf)
+            for j in range(num_ops):
+                out = _data.iadd(out, d2m[j], dwm[j])
+            del d2m
 
         return out
-
 
 class Explicit1_5_SODE(Explicit_Simple_Integrator_Batched):
     """

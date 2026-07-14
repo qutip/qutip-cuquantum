@@ -163,6 +163,7 @@ class CuState(Data):
             raise NotImplementedError(type(arg))
 
         self.base = base
+        self.batch_size = self.base.view()
         super().__init__(shape=shape)
 
     def copy(self):
@@ -180,7 +181,7 @@ class CuState(Data):
         else:
             tensor_shape = self.base.hilbert_space_dims
 
-        num_batch = self.base.view().shape[-1]
+        num_batch = self.base.batch_size
 
         local_tensor = self.base.view()
         if self.base.local_info[0][:-1] != tensor_shape:
@@ -337,7 +338,7 @@ def iadd_cuState(left, right, scale=1.):
 
 @_data.norm.frobenius.register(CuState)
 def frobenius_cuState(mat):
-    if mat.base.view().shape[-1] == 1:
+    if mat.base.batch_size == 1:
         return float(mat.base.norm()[0])**0.5
     return mat.base.norm().get()**0.5
 

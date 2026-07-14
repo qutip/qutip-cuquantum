@@ -20,7 +20,7 @@ def setup_operators(N, N_sc=1, H_td=False, sc_td=False, c_ops=False):
     H = n & n
     if H_td:
         h = (a.dag() & a) + (a & a.dag())
-        H += qutip.QobjEvo(h, lambda t: 2-t)
+        H += qutip.QobjEvo([h, lambda t: 2-t])
 
     a0 = a & I * 0.5
     a1 = I & a * 0.2
@@ -94,7 +94,7 @@ def test_sme_solver_gpu_vs_cpu(method, H_td, sc_td, heterodyne):
         "dt": 0.001
     }
 
-    H, sc_ops, c_ops, e_ops, psi0 = setup_operators(3, 2)
+    H, sc_ops, c_ops, e_ops, psi0 = setup_operators(3, 2, H_td, sc_td)
     cpu_sol = qutip.SMESolver(
         H, sc_ops=sc_ops, c_ops=c_ops, heterodyne=heterodyne, options=options
     )
@@ -105,9 +105,12 @@ def test_sme_solver_gpu_vs_cpu(method, H_td, sc_td, heterodyne):
     with CuQuantumBackend(ctx):
         # We use the Dia format e_ops as it should be handle better in
         # qutip_cuquantum SMEsolve than the oposite.
-        H, sc_ops, c_ops, _, psi0 = setup_operators(3, 2)
+        H, sc_ops, c_ops, _, psi0 = setup_operators(3, 2, H_td, sc_td)
     gpu_sol = CuSMESolver(
         H, sc_ops=sc_ops, c_ops=c_ops, heterodyne=heterodyne, options=gpu_options
     )
 
-    compare_evolution(cpu_sol, gpu_sol, psi0, e_ops, rtol=1e-8, atol=1e-10, compare_measurement=True)
+    compare_evolution(
+        cpu_sol, gpu_sol, psi0, e_ops,
+        rtol=1e-8, atol=1e-10, compare_measurement=True,
+    )
