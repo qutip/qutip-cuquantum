@@ -15,6 +15,63 @@ from qutip.core.cy.coefficient import FunctionCoefficient
 import qutip
 
 
+class BatchWiener:
+    """
+    Wiener process.
+    """
+    def __init__(self, t0, dt, generators, shape):
+        self.t0 = t0
+        self.dt = dt
+        self.shape = shape
+        self.generators = generators
+        self.noise = np.zeros((0,) + shape + (len(generators),), dtype=float)
+        self.last_W = np.zeros(shape[-1], dtype=float)
+        self.idx_last_0 = 0
+
+    def _extend(self, idx):
+        N_new_vals = idx - self.noise.shape[0]
+        shape = (N_new_vals,) + self.shape
+        dW = np.stack([
+            generator.normal(0, np.sqrt(self.dt), size=shape)
+            for generator in self.generators
+        ], axis=-1)
+        self.noise = np.concatenate((self.noise, dW), axis=0)
+
+    def dW(self, t, N):
+        # Find the index of t.
+        # Rounded to the closest step, but only multiple of dt are expected.
+        idx0 = round((t - self.t0) / self.dt)
+        if idx0 + N - 1 >= self.noise.shape[0]:
+            self._extend(idx0 + N)
+        return self.noise[idx0:idx0 + N, :, :, :]
+
+    def __call__(self, t):
+        """
+        Return the Wiener process at the closest ``dt`` step to ``t``.
+        """
+        # The Wiener process is not used directly in the evolution, so it's
+        # less optimized than the ``dW`` method.
+
+        # Find the index of t.
+        # Rounded to the closest step, but only multiple of dt are expected.
+        idx = round((t - self.t0) / self.dt)
+        if idx >= self.noise.shape[0]:
+            self._extend(idx + 1)
+
+        if self.idx_last_0 > idx:
+            # Before last call, reseting
+            self.idx_last_0 = 0
+            self.last_W = np.zeros(self.shape[-1], dtype=float)
+
+        self.last_W = self.last_W + np.sum(
+            self.noise[self.idx_last_0:idx+1, 0, :], axis=0
+        )
+
+        self.idx_last_0 = idx
+        return self.last_W
+
+
+
 class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
 
     integrator_options = {
@@ -43,7 +100,7 @@ class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
             Random number generator.
         """
         self.t = t
-        self.batch = self.options["batch"]
+        self.batch = len(generator)
 
         stepper_opt = {
             key: self.options[key]
@@ -52,6 +109,7 @@ class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
         }
 
         if isinstance(generator, PreSetWiener):
+            # Not reachable, run_from_experiment not implemented
             self.wiener = generator
             if (
                 generator.is_measurement
@@ -63,12 +121,13 @@ class Explicit_Simple_Integrator_Batched(_Explicit_Simple_Integrator):
                 )
             stepper_opt["measurement_noise"] = generator.is_measurement
         elif isinstance(generator, Wiener):
+            # Not reachable
             self.wiener = generator
         else:
             num_collapse = len(self.rhs.sc_ops)
-            self.wiener = Wiener(
+            self.wiener = BatchWiener(
                 t, self.options["dt"], generator,
-                (self.N_dw, num_collapse, self.batch)
+                (self.N_dw, num_collapse)
             )
         self.rhs._register_feedback(self.wiener)
         if self.rhs.issuper:
@@ -529,6 +588,7 @@ class Explicit15(Euler):
 
         return out
 
+
 class Explicit1_5_SODE(Explicit_Simple_Integrator_Batched):
     """
     Explicit order 1.5 strong schemes.  Reproduce the order 1.5 strong
@@ -758,12 +818,11 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         self.rhs = rhs
         if not rhs.issuper:
             raise NotImplementedError
-        self._make_operators()
 
     def _make_operators(self):
         rhs = self.rhs
         H = rhs.H
-        batch = self.options["batch"]
+        batch = self.batch
         c_ops = rhs.c_ops
         sc_ops = rhs.sc_ops
         N = len(sc_ops)
@@ -809,16 +868,11 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
                 else:
                     raise NotImplementedError
 
-
-            #ML += op * FunctionCoefficient(_y, args={"_i": i, "cu_args": None})
-            #MR += op.dag() * FunctionCoefficient(
-            #    _y, args={"_i": i, "cu_args": None}
-            #)
             for j in range(i+1):
                 coeff = BatchCoefficient(
                     _w, args={"_i": i, "_j": j, "cu_args": None}
                 )
-                oper = op @ sc_ops[j]
+                oper = sc_ops[j] @ op
                 for part in oper.to_list():
                     if isinstance(part, qutip.Qobj):
                         ML += qutip.QobjEvo([part, coeff])
@@ -829,8 +883,6 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
                         MR += qutip.QobjEvo([qobj.dag(), coeff * p_coeff.conj()])
                     else:
                         raise NotImplementedError
-                # ML += coeff
-                # MR += coeff * (sc_ops[j].dag() @ op.dag())
 
         self.C = 0
         for op in c_ops:
@@ -838,8 +890,14 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         if c_ops:
             self.C = CuQobjEvo(self.C)
 
-        self.M_l = CuQobjEvo(qutip.spre(ML), batch) + CuQobjEvo(qutip.spre(M), 1)
-        self.M_r = CuQobjEvo(qutip.spost(MR), batch) + CuQobjEvo(qutip.spost(M.dag()), 1)
+        self.M_l = (
+            CuQobjEvo(qutip.spre(ML), batch)
+            + CuQobjEvo(qutip.spre(M), 1)
+        )
+        self.M_r = (
+            CuQobjEvo(qutip.spost(MR), batch)
+            + CuQobjEvo(qutip.spost(M.dag()), 1)
+        )
         self.cpcds = [CuQobjEvo((op + op.dag()) * dt) for op in sc_ops]
 
     def set_state(self, t, state0, generator):
@@ -858,23 +916,25 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
             Random number generator.
         """
         self.t = t
-        batch = self.options["batch"]
+        self.batch = len(generator)
+        self.num_collapses = len(self.rhs.sc_ops)
         if isinstance(generator, Wiener):
+            raise NotImplementedError
             self.wiener = generator
         else:
-            self.wiener = Wiener(
+            self.wiener = BatchWiener(
                 t, self.options["dt"], generator,
-                (1, self.num_collapses, batch)
+                (1, self.num_collapses)
             )
         self.rhs._register_feedback(self.wiener)
         self._make_operators()
         self._is_set = True
 
-        if batch == 1:
+        if self.batch == 1:
             self.state = CuState(state0, self.M_l.hilbert_space_dims)
         else:
             state0 = CuState(state0, self.M_l.hilbert_space_dims)
-            self.state = batch_copy(state0, batch)
+            self.state = batch_copy(state0, self.batch)
 
         self._tmp = _data.zeros_like(self.state)
         self._out = _data.zeros_like(self.state)
@@ -912,7 +972,6 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         ])
 
         N = self.num_collapses
-        ncol = state.shape[1]
 
         self.dy[:, :] = dy
         self.dw[:, :, :] = (

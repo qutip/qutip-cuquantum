@@ -5,7 +5,7 @@ __all__ = ["smesolve", "SMESolver", "ssesolve", "SSESolver"]
 
 import numpy as np
 from numpy.typing import ArrayLike
-from numpy.random import SeedSequence
+from numpy.random import SeedSequence, default_rng
 from typing import Any, Callable, Literal, overload
 from functools import partial
 from time import time
@@ -19,6 +19,7 @@ from qutip import Qobj, QobjEvo
 from qutip.core.dimensions import Dimensions
 from qutip.core import data as _data
 from qutip.solver._feedback import _QobjFeedback, _DataFeedback, _WienerFeedback
+from qutip.solver.parallel import _get_map
 from qutip.typing import QobjEvoLike, EopsLike
 from qutip.settings import settings
 
@@ -94,9 +95,9 @@ class StochasticTrajResult(Result):
         Measurements for each stochastic collapse operators.
 
         The output shape is
-            (len(sc_ops), len(tlist)-1)
+            (batch_size, len(sc_ops), len(tlist)-1)
         for homodyne detection, and
-            (len(sc_ops), 2, len(tlist)-1)
+            (batch_size, len(sc_ops), 2, len(tlist)-1)
         for heterodyne detection.
         """
         if self.batch_size == 1:
@@ -136,20 +137,32 @@ class StochasticTrajResult(Result):
 
     @property
     def expect(self):
+        return [np.sum(e_op, axis=1) / e_op.shape[1] for e_op in self.batch_expect]
         for key in self.e_data.keys():
             # First add is the raw rho0, second has batching options applied
+            as_array = np.array(self.e_data[key])
             len_0 = np.array(self.e_data[key][0]).size
             len_1 = np.array(self.e_data[key][1]).size
             if len_0 == 1 and len_1 > 1:
                 self.e_data[key][0] = [self.e_data[key][0]] * len_1
         return [np.array(e_op) for e_op in self.e_data.values()]
 
+    @property
+    def batch_expect(self):
+        out = []
+        for key in self.e_data.keys():
+            # First add is the raw rho0, second has batching options applied
+            as_array = np.array(self.e_data[key])
+            if as_array.ndim == 1:
+                as_array = as_array[:, None]
+            out.append(as_array)
+        return out
+
 
 class StochasticResult(MultiTrajResult):
     def _post_init(self, heterodyne=False):
         super()._post_init()
         self.heterodyne = heterodyne
-        self.batch_size = 1
 
         store_measurement = self.options["store_measurement"]
         keep_runs = self.options["keep_runs_results"]
@@ -166,13 +179,24 @@ class StochasticResult(MultiTrajResult):
             self.add_processor(partial(self._reduce_attr, attr="measurement"))
             self._measurement = []
 
+    def add(self, trajectory_info):
+        seed, trajectory, *_ = trajectory_info
+        weight = trajectory.batch_size
+
+        self.seeds.append(seed)
+        self._trajectories_weight_info.append(weight)
+
+        for op in self._state_processors:
+            op(trajectory, rel=weight)
+
+        return self._early_finish_check()
+
     def _add_first_traj(self, trajectory):
         """
         Read the first trajectory, intitializing needed data.
         """
         self.times = trajectory.times
         self.e_ops = trajectory.e_ops
-        self.batch_size = trajectory.batch_size
 
     def _increment_traj(self, trajectory, *, abs=None, rel=None):
         if self.num_trajectories == 0 and not self._deterministic_weight_info:
@@ -186,7 +210,7 @@ class StochasticResult(MultiTrajResult):
                     self._store_final_density_matrix
                 )
         else:
-            self.num_trajectories += self.batch_size
+            self.num_trajectories += trajectory.batch_size
             if self._sum_rel is None:
                 self._sum_rel = _TrajectorySum(
                     trajectory,
@@ -207,9 +231,9 @@ class StochasticResult(MultiTrajResult):
         saved or not.
         """
         if hasattr(self, "_" + attr):
-            return getattr(self, "_" + attr)
+            return np.concat(getattr(self, "_" + attr))
         elif self.options["keep_runs_results"]:
-            return np.array([
+            return np.concat([
                 getattr(traj, attr) for traj in self.trajectories
             ])
         return None
@@ -282,39 +306,6 @@ class StochasticResult(MultiTrajResult):
             new._dW = np.concatenate((self.dW, other.dW), axis=0)
 
         return new
-
-    def _create_e_data(self):
-        for i, k in enumerate(self._raw_ops):
-            avg = 0
-            avg2 = 0
-            if self.batch_size > 1:
-                for j in range(self.batch_size):
-                    if self._sum_det:
-                        avg += self._sum_det.sum_expect[i][..., j]
-                        avg2 += self._sum_det.sum2_expect[i][..., j]
-                    if self._sum_rel:
-                        avg += (
-                            self._sum_rel.sum_expect[i][..., j] / self.num_trajectories
-                        )
-                        avg2 += (
-                            self._sum_rel.sum2_expect[i][..., j] / self.num_trajectories
-                        )
-            else:
-                if self._sum_det:
-                    avg += self._sum_det.sum_expect[i]
-                    avg2 += self._sum_det.sum2_expect[i]
-                if self._sum_rel:
-                    avg += (
-                        self._sum_rel.sum_expect[i] / self.num_trajectories
-                    )
-                    avg2 += (
-                        self._sum_rel.sum2_expect[i] / self.num_trajectories
-                    )
-
-            self._average_e_data[k] = list(avg)
-            # mean(expect**2) - mean(expect)**2 can something be very small
-            # negative (-1e-15) which raise an error for float sqrt.
-            self._std_e_data[k] = list(np.sqrt(np.abs(avg2 - np.abs(avg**2))))
 
 
 class _StochasticRHS(_MultiTrajRHS):
@@ -420,6 +411,7 @@ class StochasticSolver(MultiTrajSolver):
         "bitgenerator": None,
         "method": "platen",
         "store_measurement": "",
+        "batch": 1,
     }
 
     def _resultclass(self, e_ops, options, solver, stats):
@@ -574,6 +566,48 @@ class StochasticSolver(MultiTrajSolver):
         t, state, _ = self._integrator.get_state()
         result.add(t, self._restore_state(state, copy=False))
         return result
+
+    def _initialize_run(self, state, ntraj=1, args=None, e_ops=(),
+                        timeout=None, target_tol=None, seeds=None):
+        start_time = time()
+        self._argument(args)
+        stats = self._initialize_stats()
+        seeds = self._read_seed(seeds, ntraj)
+
+
+        b = self.options["batch"]
+        seeds = [seeds[s*b:(s+1)*b] for s, _ in enumerate(seeds[::b])]
+
+        result = self._resultclass(
+            e_ops, self.options, solver=self.name, stats=stats
+        )
+        result.add_end_condition(ntraj, target_tol)
+
+        map_func, map_kw = _get_map(self.options)
+        map_kw.update({
+            'timeout': timeout,
+            'num_cpus': self.options['num_cpus'],
+        })
+        if isinstance(state, (list, tuple)):  # mixed initial conditions
+            state0 = [(self._prepare_state(psi), p) for psi, p in state]
+        else:
+            state0 = self._prepare_state(state)
+        stats['preparation time'] += time() - start_time
+        return seeds, result, map_func, map_kw, state0
+
+    def _get_generator(self, seeds):
+        """
+        Read the seeds and create the random number generators.
+        """
+        generators = []
+        for seed in seeds:
+            if self.options['bitgenerator']:
+                bit_gen = getattr(np.random, self.options['bitgenerator'])
+                generator = np.random.Generator(bit_gen(seed))
+            else:
+                generator = default_rng(seed)
+            generators.append(generator)
+        return generators
 
     def run_from_experiment(
         self,

@@ -45,13 +45,14 @@ def compare_evolution(
     solver1, solver2,
     psi0, e_ops,
     atol, rtol,
-    compare_measurement=False
+    ntraj=1,
+    compare_measurement=False,
 ):
     tlist = np.linspace(0, 0.1, 21)
     seed = np.random.randint(2**30)
 
-    out_1 = solver1.run(psi0, tlist, e_ops=e_ops, ntraj=1, seeds=seed)
-    out_2 = solver2.run(psi0, tlist, e_ops=e_ops, ntraj=1, seeds=seed)
+    out_1 = solver1.run(psi0, tlist, e_ops=e_ops, ntraj=ntraj, seeds=seed)
+    out_2 = solver2.run(psi0, tlist, e_ops=e_ops, ntraj=ntraj, seeds=seed)
 
     for idx in range(len(e_ops)):
         np.testing.assert_allclose(
@@ -112,5 +113,44 @@ def test_sme_solver_gpu_vs_cpu(method, H_td, sc_td, heterodyne):
 
     compare_evolution(
         cpu_sol, gpu_sol, psi0, e_ops,
+        rtol=1e-8, atol=1e-10, compare_measurement=True,
+    )
+
+
+
+@pytest.mark.parametrize("method", common_sme_method)
+@pytest.mark.parametrize("batch_size", [1, 2, 3, 10, 11])
+def test_sme_solver_batching(method, batch_size):
+    """
+    Validates that the GPU-backed cuquantum SMESolver yields results
+    matching the CPU-backed QuTiP SMESolver for identical seeds.
+    """
+    options = {
+        "method": method,
+        "store_final_state": False,
+        "keep_runs_results": False,
+        "store_measurement": True,
+        "progress_bar": False,
+        "dt": 0.001
+    }
+
+    H, sc_ops, c_ops, e_ops, psi0 = setup_operators(3, 1, False, False, True)
+    cpu_sol = qutip.SMESolver(
+        H, sc_ops=sc_ops, c_ops=c_ops, heterodyne=False, options=options
+    )
+
+    gpu_options = options.copy()
+    gpu_options["batch"] = batch_size
+
+    with CuQuantumBackend(ctx):
+        # We use the Dia format e_ops as it should be handle better in
+        # qutip_cuquantum SMEsolve than the oposite.
+        H, sc_ops, c_ops, _, psi0 = setup_operators(3, 1, False, False, True)
+    gpu_sol = CuSMESolver(
+        H, sc_ops=sc_ops, c_ops=c_ops, heterodyne=False, options=gpu_options
+    )
+
+    compare_evolution(
+        cpu_sol, gpu_sol, psi0, e_ops, ntraj=10,
         rtol=1e-8, atol=1e-10, compare_measurement=True,
     )
