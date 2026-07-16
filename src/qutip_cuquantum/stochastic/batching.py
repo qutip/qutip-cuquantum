@@ -4,8 +4,9 @@ from ..state import CuState
 from qutip import settings
 from qutip.core.cy.coefficient import FunctionCoefficient, Coefficient
 
+__all__ = ["get_max_batch_size"]
+
 def get_max_batch_size(
-    ctx : WorkStream,
     state: CuState,
     headroom: float = 0.10,
     num_copies: int = 1,
@@ -16,9 +17,6 @@ def get_max_batch_size(
 
     Parameters
     ----------
-    ctx:
-        The cuDensityMat Workstream context.
-
     state:
         Sample state with batch size of 1.
 

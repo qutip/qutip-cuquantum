@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from cuquantum.densitymat import WorkStream
 
 from qutip_cuquantum import CuQuantumBackend
-from qutip_cuquantum.stochastic.smesolve import SMESolver as CuSMESolver
+from qutip_cuquantum import SMESolver as CuSMESolver
 
 
 ctx = WorkStream()

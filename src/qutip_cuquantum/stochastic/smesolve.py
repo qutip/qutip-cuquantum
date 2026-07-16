@@ -1,7 +1,7 @@
 # Required for Sphinx to follow autodoc_type_aliases
 from __future__ import annotations
 
-__all__ = ["smesolve", "SMESolver", "ssesolve", "SSESolver"]
+__all__ = ["SMESolver"]
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -892,3 +892,5 @@ class SSESolver(StochasticSolver):
         "method": "platen",
         "store_measurement": "",
     }
+    def __init__(self, *args, **kwargs):
+        raise NotImplementedError
