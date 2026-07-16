@@ -18,9 +18,11 @@ class CuQobjEvo(QobjEvo):
 
     It only support list based `QobjEvo`.
     """
-    def __init__(self, qobjevo):
+    def __init__(self, qobjevo, batch_size=1):
         qobjevo = qobjevo.to(CuOperator)
         as_list = qobjevo.to_list()
+        # TODO: Work fine, but the matrices are stored both in qutip's cython
+        # object and cuQuantum's operator. Not memory efficient.
         super().__init__(qobjevo)
         self.action_ready = False
         self.expect_ready = False
@@ -36,7 +38,7 @@ class CuQobjEvo(QobjEvo):
             if isinstance(part, Qobj):
                 self.operator.append(part.data.to_OperatorTerm(
                     dual, hilbert_dims=self.hilbert_space_dims
-                ))
+                ), batch_size=batch_size)
             elif (
                 isinstance(part, list) and isinstance(part[0], Qobj)
             ):
@@ -44,10 +46,10 @@ class CuQobjEvo(QobjEvo):
                 coeff = wrap_coeff(part[1])
                 self.operator.append(qobj.data.to_OperatorTerm(
                     dual, hilbert_dims=self.hilbert_space_dims
-                ), coeff)
+                ), coeff, batch_size=batch_size)
             else:
                 oper = wrap_funcelement(*part, dual, self.hilbert_space_dims)
-                self.operator.append(oper)
+                self.operator.append(oper, batch_size=batch_size)
 
     def matmul_data(self, t, state, out=None, scale=1.):
         if scale != 1.:
@@ -70,6 +72,54 @@ class CuQobjEvo(QobjEvo):
         )
         return out
 
+    def expect(self, t, state, check_real=True):
+        """
+        Expectation value of this operator at time ``t`` with the state.
+
+        Parameters
+        ----------
+        t : float
+            Time of the operator to apply.
+
+        state : Qobj
+            right matrix of the product
+
+        check_real : bool (True)
+            Whether to convert the result to a `real` when the imaginary part
+            is smaller than the real part by a dactor of
+            ``settings.core['rtol']``.
+
+        Returns
+        -------
+        expect : float or complex
+            ``state.adjoint() @ self @ state`` if ``state`` is a ket.
+            ``trace(self @ matrix)`` is ``state`` is an operator or
+            operator-ket.
+        """
+        # TODO: remove reading from `settings` for a typed value when options
+        # support property.
+        herm_rtol = settings.core['rtol']
+        if not isinstance(state, Qobj):
+            raise TypeError("A Qobj state is expected")
+        if not (self.isoper or self.issuper):
+            raise ValueError("Must be an operator or super operator to compute"
+                             " an expectation value")
+        if not (
+            (self._dims[1] == state._dims[0]) or
+            (self.issuper and self._dims[1] == state._dims)
+        ):
+            raise ValueError("incompatible dimensions " + str(self.dims) +
+                             ", " + str(state.dims))
+        out = self.expect_data(t, state.data)
+        if isinstance(state.data, CuState) and state.data.base.batch_size != 1:
+            return out
+        if (
+            check_real and
+            (out == 0 or (out.real and abs(out.imag / out.real) < herm_rtol))
+        ):
+            return out.real
+        return out
+
     def expect_data(self, t, state):
         if not isinstance(state, CuState):
             state = CuState(state, hilbert_dims=self.hilbert_space_dims)
@@ -81,7 +131,10 @@ class CuQobjEvo(QobjEvo):
             self.expect_ready = True
         # Workaround for a bug in cudensity 0.2.0.
         settings.cuDensity["ctx"].release_workspace()
-        return self.operator.compute_expectation(t, None, state.base).get()[0]
+        expect = self.operator.compute_expectation(t, None, state.base).get()
+        if state.base.batch_size == 1:
+            return expect[0]
+        return expect
 
     def arguments(self, args):
         raise NotImplementedError
@@ -103,6 +156,15 @@ class CuQobjEvo(QobjEvo):
 
     def trans(self):
         raise NotImplementedError
+
+    def __add__(self, other):
+        if not isinstance(other, CuQobjEvo):
+            return NotImplemented
+        qevo = QobjEvo.__add__(self, other)
+        out = CuQobjEvo(qevo)  # create a CuQobjEvo with merged metadata
+
+        out.operator = self.operator + other.operator
+        return out
 
     @property
     def dtype(self):

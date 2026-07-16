@@ -151,8 +151,7 @@ _kron_hilbert = [
 class TestTrace(test_tools.TestTrace):
     specialisations = [
         pytest.param(trace_cuState, CuState, complex),
-        # OperKet are not actually stacked in the tensor rep
-        pytest.param(trace_oper_ket_cuState, CuState, complex),
+        pytest.param(trace_oper_ket_cuState, CuState, object),
     ]
 
     shapes = _unary_mixed

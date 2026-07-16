@@ -66,7 +66,7 @@ from .ode import Result, CuMCIntegrator
 from qutip import settings
 from qutip.solver import SESolver, MESolver, MCSolver, Result as BaseResult
 from qutip.solver.mcsolve import MCIntegrator
-
+from .stochastic import SMESolver, get_max_batch_size
 
 class cuDensityOption(QutipOptions):
     _options = {"ctx": None}
