@@ -1,8 +1,5 @@
-#cython: language_level=3
-
-
-from qutip.core.cy.qobjevo cimport QobjEvo
-from qutip.core.data cimport Data
+from qutip.core.cy.qobjevo import QobjEvo
+from qutip.core.data import Data
 
 import numpy as np
 from qutip.core.dimensions import Dimensions
@@ -15,10 +12,7 @@ from qutip.core import data as _data
 import cupy as cp
 import cuquantum.densitymat as cudm
 
-cdef class CuHEOMRhs(QobjEvo):
-    cdef:
-        dict __dict__    
-
+class CuHEOMRhs(QobjEvo):
     def __init__(self, ctx, Lsys, ados):
         # Initialize the QobjEvo base-class cdef state ourselves: we
         # intentionally bypass ``QobjEvo.__init__`` (CuHEOMRhs is not built
@@ -288,14 +282,12 @@ cdef class CuHEOMRhs(QobjEvo):
             output_state,
         )
 
-    # def matmul_data(self, t, state, out=None, scale=1.0):
-    cpdef Data matmul_data(CuHEOMRhs self, object t, Data state, Data out=None, double complex scale=1.0):        
-
+    def matmul_data(self, t, state, out=None, scale=1.0):
         if not isinstance(state, CuState):
             state = CuState(state)
         if out is None:
             out = zeros_like_cuState(state)
-            
+
         if(scale != 1.0):
             state = state * scale
 
@@ -304,13 +296,6 @@ cdef class CuHEOMRhs(QobjEvo):
 
         self._compute(t, input_cudm_state, output_cudm_state)
         return out
-
-    # def _register_feedback(self, solvers_feeds, solver):
-    #     # CuHEOMRhs does not support feedback args, and the base
-    #     # implementation iterates over the cdef ``_solver_only_feedback``
-    #     # dict, which is left uninitialized when we bypass
-    #     # ``QobjEvo.__init__`` via ``_restore``. Override to a no-op.
-    #     return
 
     def arguments(self, args):
         raise NotImplementedError

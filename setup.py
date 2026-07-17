@@ -7,10 +7,6 @@ import sys
 # Required third-party imports, must be specified in pyproject.toml.
 import packaging.version
 import setuptools
-from Cython.Build import cythonize
-import qutip
-import qutip.core.cy as qutip_cc
-import numpy
 
 
 def process_options():
@@ -90,41 +86,6 @@ def create_version_py_file(options):
         print(content, file=file)
 
 
-
-def get_ext_modules(options):
-    include_dirs = [
-        numpy.get_include(),
-        os.path.abspath(os.path.join(qutip.core.data.__file__, os.pardir)),
-        os.path.abspath(os.path.join(qutip_cc.__file__, os.pardir)),
-        os.path.abspath(os.path.join(qutip.__file__, os.pardir))
-    ]
-
-    ext_specs = [
-        ("qutip_cuquantum.qobjevo",
-         os.path.join("src", "qutip_cuquantum", "qobjevo.pyx")),
-        ("qutip_cuquantum.heom.rhs",
-         os.path.join("src", "qutip_cuquantum", "heom", "rhs.pyx")),
-    ]
-
-    print("*********************************************************************************")
-    print(include_dirs)
-    for name, pyx_file in ext_specs:
-        print(f"{name}: {pyx_file}")
-    print("*********************************************************************************")
-
-    extensions = [
-        setuptools.Extension(
-            name=name,
-            sources=[pyx_file],
-            include_dirs=include_dirs,
-            language="c++",
-        )
-        for name, pyx_file in ext_specs
-    ]
-
-    return cythonize(extensions, include_path=include_dirs)
-
-
 if __name__ == "__main__":
     options = process_options()
     create_version_py_file(options)
@@ -132,6 +93,5 @@ if __name__ == "__main__":
     # keep here are ones that we have done some compile-time processing on.
 
     setuptools.setup(
-        version = options["version"],
-        ext_modules = get_ext_modules(options),
+        version = options["version"]
     )

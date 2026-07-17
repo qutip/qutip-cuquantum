@@ -1,10 +1,8 @@
-#cython: language_level=3
-
 import cuquantum.densitymat as cudense
 from cuquantum.densitymat import Operator
 
-from qutip.core.cy.qobjevo cimport QobjEvo
-from qutip.core.data cimport Data
+from qutip.core.cy.qobjevo import QobjEvo
+from qutip.core.data import Data
 from qutip.settings import settings
 from qutip import Qobj
 
@@ -14,20 +12,13 @@ from .callable import wrap_coeff, wrap_funcelement
 
 
 # TODO: Being child class of QobjEvo needed? Or duck typing good enough?
-cdef class CuQobjEvo(QobjEvo):
+class CuQobjEvo(QobjEvo):
     """
     A QobjEvo using cuDensity's Operator instead of qutip's cython operations.
     Designed to use in solver only, as a static object
 
     It only support list based `QobjEvo`.
     """
-    cdef:
-        dict __dict__
-        # object operator
-        # tuple hilbert_space_dims
-        # bint action_ready
-        # bint expect_ready
-
     def __init__(self, qobjevo):
         qobjevo = qobjevo.to(CuOperator)
         as_list = qobjevo.to_list()
@@ -61,7 +52,7 @@ cdef class CuQobjEvo(QobjEvo):
                 self.operator.append(oper)
 
 
-    cpdef Data matmul_data(CuQobjEvo self, object t, Data state, Data out=None, double complex scale=1.0):
+    def matmul_data(self, t, state, out=None, scale=1.0):
         if not isinstance(state, CuState):
             state = CuState(state, hilbert_dims=self.hilbert_space_dims)
         if not self.action_ready:
@@ -82,7 +73,7 @@ cdef class CuQobjEvo(QobjEvo):
         )
         return out
 
-    cpdef object expect_data(CuQobjEvo self, object t, Data state):
+    def expect_data(self, t, state):
         if not isinstance(state, CuState):
             state = CuState(state, hilbert_dims=self.hilbert_space_dims)
         if not self.expect_ready:
