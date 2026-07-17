@@ -92,25 +92,37 @@ def create_version_py_file(options):
 
 
 def get_ext_modules(options):
-    pyx_file = os.path.join("src", "qutip_cuquantum", "qobjevo.pyx")
     include_dirs = [
         numpy.get_include(),
         os.path.abspath(os.path.join(qutip.core.data.__file__, os.pardir)),
         os.path.abspath(os.path.join(qutip_cc.__file__, os.pardir)),
         os.path.abspath(os.path.join(qutip.__file__, os.pardir))
     ]
+
+    ext_specs = [
+        ("qutip_cuquantum.qobjevo",
+         os.path.join("src", "qutip_cuquantum", "qobjevo.pyx")),
+        ("qutip_cuquantum.heom.rhs",
+         os.path.join("src", "qutip_cuquantum", "heom", "rhs.pyx")),
+    ]
+
     print("*********************************************************************************")
     print(include_dirs)
-    print(pyx_file)
+    for name, pyx_file in ext_specs:
+        print(f"{name}: {pyx_file}")
     print("*********************************************************************************")
-    ext = setuptools.Extension(
-        name="qutip_cuquantum.qobjevo",
-        sources=[pyx_file],
-        include_dirs=include_dirs,
-        language="c++",
-    )
 
-    return cythonize(ext, include_path=include_dirs)
+    extensions = [
+        setuptools.Extension(
+            name=name,
+            sources=[pyx_file],
+            include_dirs=include_dirs,
+            language="c++",
+        )
+        for name, pyx_file in ext_specs
+    ]
+
+    return cythonize(extensions, include_path=include_dirs)
 
 
 if __name__ == "__main__":

@@ -644,6 +644,13 @@ def zeros_CuOperator(rows, cols):
     if rows != cols: raise ValueError("Zero operator must be square.")
     return CuOperator(shape=(rows, cols))
 
+@_data.iszero.register(CuOperator)
+def iszero_CuOperator(operator):
+    for term in operator.terms:
+        for pterm in term.prod_terms:
+            if not _data.iszero(pterm.operator):
+                return False
+    return True
 
 @_data.diag.register(CuOperator)
 def diags_CuOperator(diagonals, offsets=None, shape=None):

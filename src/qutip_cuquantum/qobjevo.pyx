@@ -61,7 +61,7 @@ cdef class CuQobjEvo(QobjEvo):
                 self.operator.append(oper)
 
 
-    cpdef Data matmul_data(CuQobjEvo self, object t, Data state, Data out=None):
+    cpdef Data matmul_data(CuQobjEvo self, object t, Data state, Data out=None, double complex scale=1.0):
         if not isinstance(state, CuState):
             state = CuState(state, hilbert_dims=self.hilbert_space_dims)
         if not self.action_ready:
@@ -72,6 +72,8 @@ cdef class CuQobjEvo(QobjEvo):
             self.action_ready = True
         if out is None:
             out = zeros_like_cuState(state)
+        if scale != 1.0:
+            state = state * scale
         self.operator.compute_action(
             t,
             None,

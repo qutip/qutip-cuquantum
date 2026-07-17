@@ -66,7 +66,10 @@ from .ode import Result, CuMCIntegrator
 from qutip import settings
 from qutip.solver import SESolver, MESolver, MCSolver, Result as BaseResult
 from qutip.solver.mcsolve import MCIntegrator
+import qutip.solver.heom as _heom_mod
+import qutip.solver.heom.bofin_solvers as _bofin_mod
 
+from .heom.solver import CuHEOMSolver
 
 class cuDensityOption(QutipOptions):
     _options = {"ctx": None}
@@ -76,6 +79,8 @@ class cuDensityOption(QutipOptions):
 
 cuDensityOption_instance = cuDensityOption()
 cuDensityOption_instance._set_as_global_default()
+
+_original_heom_solver = None
 
 
 def set_as_default(ctx: cuquantum.densitymat.WorkStream=None, reverse=False):
@@ -92,6 +97,7 @@ def set_as_default(ctx: cuquantum.densitymat.WorkStream=None, reverse=False):
     reverse: bool, default: False
         Undo the change of default backend to qutip core defaults.
     """
+    global _original_heom_solver
     if not reverse:
         settings.cuDensity["ctx"] = ctx
         settings.core["default_dtype"] = "cuDensity"
@@ -108,6 +114,9 @@ def set_as_default(ctx: cuquantum.densitymat.WorkStream=None, reverse=False):
         MCSolver._trajectory_resultclass = Result
         MCSolver._mc_integrator_class = CuMCIntegrator
 
+        _original_heom_solver = _heom_mod.HEOMSolver
+        _heom_mod.HEOMSolver = CuHEOMSolver
+        _bofin_mod.HEOMSolver = CuHEOMSolver 
     else:
         settings.core["default_dtype"] = "core"
         settings.core["auto_real_casting"] = True
@@ -121,6 +130,9 @@ def set_as_default(ctx: cuquantum.densitymat.WorkStream=None, reverse=False):
         MCSolver._trajectory_resultclass = BaseResult
         MCSolver._mc_integrator_class = MCIntegrator
 
+
+        _heom_mod.HEOMSolver = _original_heom_solver
+        _bofin_mod.HEOMSolver = _original_heom_solver
 
 
 class CuQuantumBackend:
@@ -164,6 +176,10 @@ class CuQuantumBackend:
         MCSolver._trajectory_resultclass = Result
         MCSolver._mc_integrator_class = CuMCIntegrator
 
+        self.previous_values["original_heom_solver"] = _heom_mod.HEOMSolver
+        _heom_mod.HEOMSolver = CuHEOMSolver
+        _bofin_mod.HEOMSolver = CuHEOMSolver
+
     def __exit__(self, exc_type, exc_value, traceback):
         settings.core["default_dtype"] = self.previous_values["default_dtype"]
         settings.core["auto_real_casting"] = self.previous_values["auto_real"]
@@ -175,6 +191,8 @@ class CuQuantumBackend:
         MCSolver._trajectory_resultclass = self.previous_values["MCSolverR"]
         MCSolver._mc_integrator_class = self.previous_values["MCSolverI"]
 
+        _heom_mod.HEOMSolver = self.previous_values["original_heom_solver"]
+        _bofin_mod.HEOMSolver = self.previous_values["original_heom_solver"]
 
 
 # Cleaning the namespace
