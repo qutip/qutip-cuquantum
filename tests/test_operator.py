@@ -5,7 +5,7 @@ import random
 cudense = pytest.importorskip("cuquantum.densitymat")
 
 import qutip
-from qutip_cuquantum.operator import CuOperator
+from qutip_cuquantum.operator import CuOperator, isequal_CuOperator
 from qutip_cuquantum.state import zeros_like_cuState, CuState
 
 import qutip.core.data as _data
@@ -134,7 +134,7 @@ def _cplx(N):
 def test_equal(left, right, expected):
     left = left()
     right = right()
-    assert (left.data == right.data) is expected
+    assert (isequal_CuOperator(left.data, right.data)) is expected
 
 
 class TestAdd(test_tools.TestAdd):
@@ -157,8 +157,10 @@ class TestSub(test_tools.TestSub):
 
 class TestMatmul(test_tools.TestMatmul):
     specialisations = [
-        pytest.param(lambda x, y: x @ y, CuOperator, CuOperator, CuOperator),
-    ]
+        pytest.param(
+            lambda x, y, scale=1.: x @ y * scale,
+            CuOperator, CuOperator, CuOperator
+    )]
 
     shapes = _compatible_hilbert
     bad_shapes = _imcompatible_hilbert

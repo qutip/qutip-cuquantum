@@ -11,7 +11,6 @@ from .operator import CuOperator
 from .callable import wrap_coeff, wrap_funcelement
 
 
-# TODO: Being child class of QobjEvo needed? Or duck typing good enough?
 class CuQobjEvo(QobjEvo):
     """
     A QobjEvo using cuDensity's Operator instead of qutip's cython operations.
@@ -22,8 +21,7 @@ class CuQobjEvo(QobjEvo):
     def __init__(self, qobjevo):
         qobjevo = qobjevo.to(CuOperator)
         as_list = qobjevo.to_list()
-        self._dims = qobjevo._dims
-        self.shape = qobjevo.shape
+        super().__init__(qobjevo)
         self.action_ready = False
         self.expect_ready = False
         if qobjevo.issuper:

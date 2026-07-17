@@ -644,14 +644,6 @@ def zeros_CuOperator(rows, cols):
     if rows != cols: raise ValueError("Zero operator must be square.")
     return CuOperator(shape=(rows, cols))
 
-@_data.iszero.register(CuOperator)
-def iszero_CuOperator(operator):
-    for term in operator.terms:
-        for pterm in term.prod_terms:
-            if not _data.iszero(pterm.operator):
-                return False
-    return True
-
 @_data.diag.register(CuOperator)
 def diags_CuOperator(diagonals, offsets=None, shape=None):
     return CuOperator(_data.dia.diags(diagonals, offsets, shape))
@@ -761,6 +753,24 @@ def identity_like(data, /):
     new = CuOperator(hilbert_dims=data.hilbert_dims)
     new.terms.append(Term([], 1.))
     return new
+
+
+@_data.iszero.register(CuOperator)
+def iszero_CuOperator(operator, tol=-1):
+    if tol < 0:
+        tol = settings.core["atol"]
+    for term in operator.terms:
+        # A term vanishes if its scalar prefactor is ~0 ...
+        if abs(term.factor) <= tol:
+            continue
+        # ... or if any operator in the product is itself zero.
+        if any(_data.iszero(pterm.operator, tol) for pterm in term.prod_terms):
+            continue
+        # Non-vanishing term (cross-term cancellation not detected).
+        return False
+    # TODO: detect cancellation between non-zero terms.
+    return True
+
 
 ###############################################################################
 ###############################################################################
