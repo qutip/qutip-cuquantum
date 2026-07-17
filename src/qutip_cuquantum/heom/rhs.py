@@ -2,7 +2,7 @@ from qutip.core.cy.qobjevo import QobjEvo
 from qutip.core.data import Data
 
 import numpy as np
-from qutip.core.dimensions import Dimensions
+from qutip import qzero
 from qutip.core.superoperator import spre, spost
 from qutip.solver.heom.bofin_baths import BathExponent
 from ..qobjevo import CuQobjEvo
@@ -14,18 +14,19 @@ import cuquantum.densitymat as cudm
 
 class CuHEOMRhs(QobjEvo):
     def __init__(self, ctx, Lsys, ados):
-        # Initialize the QobjEvo base-class cdef state ourselves: we
-        # intentionally bypass ``QobjEvo.__init__`` (CuHEOMRhs is not built
-        # from elements/coefficients), but the base class -- and downstream
-        # code in ``Solver.__init__`` -- assumes these containers exist.
-        self.elements = []
-        self._feedback_functions = {}
-        self._solver_only_feedback = {}
-
-        self._ctx = ctx
+        # ``QobjEvo`` keeps ``_dims``, ``shape``, ``_feedback_functions`` and
+        # ``_solver_only_feedback`` in ``readonly`` C-level slots. The old
+        # Cython subclass could assign them directly (a C-level write), but a
+        # pure-Python subclass cannot -- the ``readonly`` setters raise, and
+        # leaving them unset makes ``Solver.__init__`` fail on a ``None``
+        # feedback dict. So initialise the base through ``QobjEvo.__init__``,
+        # passing a zero operator of the *full* hierarchy size N (= n_ados * D2)
+        # so ``_dims``/``shape`` are correct. CuHEOMRhs overrides
+        # ``matmul_data`` and never uses ``elements``, so the placeholder zero
+        # element is inert.
         N = len(ados.labels) * Lsys.shape[0]
-        self._dims = Dimensions([[N], [N]])
-        self.shape = (N, N)
+        super().__init__(qzero(N, dtype=CuOperator))
+        self._ctx = ctx
         # ------------------------------------------------------------------
         # 1. System Hamiltonian / Liouvillian
         # ------------------------------------------------------------------
