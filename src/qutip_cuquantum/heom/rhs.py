@@ -27,12 +27,14 @@ class CuHEOMRhs(QobjEvo):
         N = len(ados.labels) * Lsys.shape[0]
         super().__init__(qzero(N, dtype=CuOperator))
         self._ctx = ctx
+        # The bath couplings/weights are always frozen at construction, so the
+        # RHS is constant iff the system Liouvillian is.
+        self._isconstant = Lsys.isconstant
         # ------------------------------------------------------------------
         # 1. System Hamiltonian / Liouvillian
         # ------------------------------------------------------------------
         self.dim = int(np.sqrt(Lsys.shape[0]))
         self.hilbert_dims = (self.dim,)
-
         # ------------------------------------------------------------------
         # 2. Bath / hierarchy
         # ------------------------------------------------------------------
@@ -329,10 +331,7 @@ class CuHEOMRhs(QobjEvo):
 
     @property
     def isconstant(self):
-        # v1 scope: constant H, constant bath couplings. ``CuHEOMSolver``
-        # already raises NotImplementedError on time-dependent H, and the
-        # bath gathers are built with frozen Cupy weight arrays.
-        return True
+        return self._isconstant
 
     def __call__(self, t, _args=None, **kwargs):
         raise NotImplementedError
