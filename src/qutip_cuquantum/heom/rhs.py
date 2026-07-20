@@ -27,32 +27,32 @@ class CuHEOMRhs(QobjEvo):
         N = len(ados.labels) * Lsys.shape[0]
         super().__init__(qzero(N, dtype=CuOperator))
         self._ctx = ctx
-        # The bath couplings/weights are always frozen at construction, so the
-        # RHS is constant iff the system Liouvillian is.
-        self._isconstant = Lsys.isconstant
+
         # ------------------------------------------------------------------
         # 1. System Hamiltonian / Liouvillian
         # ------------------------------------------------------------------
-        self.dim = int(np.sqrt(Lsys.shape[0]))
-        self.hilbert_dims = (self.dim,)
+        self._sys_shape = int(np.sqrt(Lsys.shape[0]))
+        self.hilbert_dims = (self._sys_shape,)
+        D2 = self._sys_shape ** 2
+        # The bath couplings/weights are always frozen at construction, so the
+        # RHS is constant iff the system Liouvillian is.
+        self._isconstant = Lsys.isconstant        
         # ------------------------------------------------------------------
         # 2. Bath / hierarchy
         # ------------------------------------------------------------------
-        n_exponents = len(ados.exponents)
+        
         for exp in ados.exponents:
             if exp.fermionic:
                 raise NotImplementedError(
                     "Fermionic exponents are not supported."
                 )
 
-        sys_shape = ados.exponents[0].Q.shape[0]
-        D2 = sys_shape ** 2
+        if  ados.exponents[0].Q.shape[0] != self._sys_shape:
+            raise ValueError("Bath coupling operator dimension does not match Hamiltonian dimension.")
+        
+        n_exponents = len(ados.exponents)
         n_ados = len(ados.labels)
-
-        self._ados = ados
-        self._n_exponents = n_exponents
         self._n_ados = n_ados
-        self._sup_shape = D2
 
         # ------------------------------------------------------------------
         # 3. Per-(k, ADO) routing tables: indices and weights
@@ -261,7 +261,7 @@ class CuHEOMRhs(QobjEvo):
         )
 
     def _compute(self, t, input_state, output_state):
-        D2 = self._sup_shape
+        D2 = self._sys_shape ** 2
         n_ados = self._n_ados
 
         # --- (1) Stage input into extended buffer --------------------------

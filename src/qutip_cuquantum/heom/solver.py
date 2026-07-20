@@ -56,16 +56,9 @@ class CuHEOMSolver(HEOMSolver):
         if not isinstance(H, (Qobj, QobjEvo)):
             raise TypeError("The Hamiltonian (H) must be a Qobj or QobjEvo")
 
-        # if isinstance(H, (QobjEvo)):
-        #     if not H.isconstant :
-        #         raise NotImplementedError("Time-dependent H is not supported yet.")
-        #     else:
-        #         H = H(0)
-
         H = QobjEvo(H.to(CuOperator))
         self.L_sys = liouvillian(H) if H.type == "oper" else H
-        
-
+    
         
         self._sys_shape = int(np.sqrt(self.L_sys.shape[0]))
         self._sup_shape = self.L_sys.shape[0]
@@ -105,15 +98,14 @@ class CuHEOMSolver(HEOMSolver):
     def _prepare_state(self, state):
         if(isinstance(state, Qobj)):
             rho0 = state
-            n = self._sys_shape
-            rho_dims = self._sys_dims            
-            if rho0._dims != rho_dims:
+            D2 = self._sys_shape ** 2      
+            if rho0._dims != self._sys_dims :
                 raise ValueError(
                     f"Initial state rho has dims {rho0.dims}"
-                    f" but the system dims are {rho_dims}"
+                    f" but the system dims are {self._sys_dims}"
                 )
-            arr = cp.zeros([n ** 2 * self._n_ados], dtype=cp.complex128)
-            arr[:n ** 2] = cp.asarray(rho0.full().ravel('F'), dtype=cp.complex128)
+            arr = cp.zeros([D2 * self._n_ados], dtype=cp.complex128)
+            arr[:D2] = cp.asarray(rho0.full().ravel('F'), dtype=cp.complex128)
             return CuState(arr)
         else:
             if(isinstance(state, CuHierarchyADOsState)):
