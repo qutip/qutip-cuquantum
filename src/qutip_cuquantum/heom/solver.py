@@ -23,6 +23,9 @@ class CuHierarchyADOsState(HierarchyADOsState):
         self.rho = Qobj(rho_arr, dims=sys_dim)
 
     def __getattr__(self, name):
+        if name == "_ados":
+            # avoid infinite recursion
+            raise AttributeError(name)        
         return getattr(self._ados, name)
 
 
