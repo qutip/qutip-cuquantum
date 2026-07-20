@@ -114,7 +114,8 @@ def set_as_default(ctx: cuquantum.densitymat.WorkStream=None, reverse=False):
         MCSolver._trajectory_resultclass = Result
         MCSolver._mc_integrator_class = CuMCIntegrator
 
-        _original_heom_solver = _heom_mod.HEOMSolver
+        if _original_heom_solver is None: 
+            _original_heom_solver = _heom_mod.HEOMSolver
         _heom_mod.HEOMSolver = CuHEOMSolver
         _bofin_mod.HEOMSolver = CuHEOMSolver 
     else:
@@ -130,9 +131,10 @@ def set_as_default(ctx: cuquantum.densitymat.WorkStream=None, reverse=False):
         MCSolver._trajectory_resultclass = BaseResult
         MCSolver._mc_integrator_class = MCIntegrator
 
-
-        _heom_mod.HEOMSolver = _original_heom_solver
-        _bofin_mod.HEOMSolver = _original_heom_solver
+        if _original_heom_solver is not None: 
+            _heom_mod.HEOMSolver = _original_heom_solver
+            _bofin_mod.HEOMSolver = _original_heom_solver
+            _original_heom_solver = None
 
 
 class CuQuantumBackend:
