@@ -21,11 +21,12 @@ class Result(qt_Result):
 
 
 class CuIntegratorVern7(qode.IntegratorVern7):
-    supports_blackbox: bool = False  # No feedback support
+    rhs_format = "solver"
     method = "vern7"
 
-    def __init__(self, system, options):
-        self.system = CuQobjEvo(system)
+    def __init__(self, solver, options):
+        self.solver = solver
+        self.system = CuQobjEvo(self.solver.rhs)
         super().__init__(self.system, options)
         self.name = f"vern7 with cuDensity"
 
@@ -34,13 +35,20 @@ class CuIntegratorVern7(qode.IntegratorVern7):
         self._ode_solver.set_initial_value(state, t)
         self._is_set = True
 
+    def reset(self, full=False):
+        self.system = CuQobjEvo(self.solver.rhs)
+        state = self.get_state()
+        super().__init__(self.system, options)
+        self.set_state(*state)
+
 
 class CuIntegratorVern9(qode.IntegratorVern9):
-    supports_blackbox: bool = False  # No feedback support
+    rhs_format = "solver"
     method = "vern9"
 
     def __init__(self, system, options):
-        self.system = CuQobjEvo(system)
+        self.solver = solver
+        self.system = CuQobjEvo(self.solver.rhs)
         super().__init__(self.system, options)
         self.name = f"vern9 with cuDensity"
 
@@ -49,13 +57,20 @@ class CuIntegratorVern9(qode.IntegratorVern9):
         self._ode_solver.set_initial_value(state, t)
         self._is_set = True
 
+    def reset(self, full=False):
+        self.system = CuQobjEvo(self.solver.rhs)
+        state = self.get_state()
+        super().__init__(self.system, options)
+        self.set_state(*state)
+
 
 class CuIntegratorTsit5(qode.IntegratorTsit5):
-    supports_blackbox: bool = False  # No feedback support
+    rhs_format = "solver"
     method = "tsit5"
 
     def __init__(self, system, options):
-        self.system = CuQobjEvo(system)
+        self.solver = solver
+        self.system = CuQobjEvo(self.solver.rhs)
         super().__init__(self.system, options)
         self.name = f"tsit5 with cuDensity"
 
@@ -63,6 +78,12 @@ class CuIntegratorTsit5(qode.IntegratorTsit5):
         state = CuState(state, self.system.hilbert_space_dims)
         self._ode_solver.set_initial_value(state, t)
         self._is_set = True
+
+    def reset(self, full=False):
+        self.system = CuQobjEvo(self.solver.rhs)
+        state = self.get_state()
+        super().__init__(self.system, options)
+        self.set_state(*state)
 
 
 class CuMCIntegrator(MCIntegrator):
