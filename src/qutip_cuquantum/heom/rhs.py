@@ -29,10 +29,10 @@ class CuHEOMRhs(QobjEvo):
         self._ctx = ctx
 
         # ------------------------------------------------------------------
-        # 1. System Hamiltonian / Liouvillian
+        # 1. System Liouvillian
         # ------------------------------------------------------------------
         self._sys_shape = int(np.sqrt(Lsys.shape[0]))
-        self.hilbert_dims = (self._sys_shape,)
+        self.hilbert_dims = tuple(Lsys.dims[0][0])
         D2 = self._sys_shape ** 2
         # The bath couplings/weights are always frozen at construction, so the
         # RHS is constant iff the system Liouvillian is.
