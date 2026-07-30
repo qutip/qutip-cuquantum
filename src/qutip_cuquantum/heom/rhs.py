@@ -111,7 +111,8 @@ class CuHEOMRhs(QobjEvo):
         # ------------------------------------------------------------------
         # 5. Diagonal operator: L_sys + per-ADO scalar
         # ------------------------------------------------------------------
-        diagonal = np.zeros(n_ados)
+        # vk is complex for e.g. underdamped baths, so this must not be real.
+        diagonal = np.zeros(n_ados, dtype=complex)
         for he_n in ados.labels:
             n = ados.idx(he_n)
             diagonal[n] = -sum(

@@ -3,7 +3,7 @@ import pytest
 import qutip
 import cuquantum.densitymat as cudense
 import qutip_cuquantum
-from qutip.solver.heom import DrudeLorentzBath
+from qutip.solver.heom import DrudeLorentzBath, UnderDampedBath
 from qutip_cuquantum.heom.solver import CuHEOMSolver, CuHierarchyADOsState
 
 # Monkeypatch-proof handle to the genuine CPU solver: this name was bound in
@@ -94,6 +94,29 @@ def test_multi_bath_matches_cpu():
 
     for i in range(len(e_ops)):
         assert np.allclose(got.expect[i], ref.expect[i], **CMP)
+
+
+def test_underdamped_bath_matches_cpu():
+    # An underdamped bath has complex vk (gamma/2 +- i*w0), unlike
+    # Drude-Lorentz where every vk is real. This exercises the imaginary part
+    # of the per-ADO diagonal scalar -sum_i n_i * vk_i.
+    H = _qubit_hamiltonian()
+    bath = UnderDampedBath(
+        qutip.sigmaz(), lam=0.5, gamma=1.0, w0=2.0, T=0.5, Nk=1, combine=True,
+    )
+    assert any(abs(np.imag(e.vk)) > 0 for e in bath.exponents), \
+        "test is vacuous unless some vk is complex"
+
+    tlist = np.linspace(0, 4, 15)
+    e_ops = [qutip.sigmaz(), qutip.sigmax(), qutip.sigmay()]
+
+    ref, got = _run_pair(H, bath, 3, _rho0(), tlist, e_ops=e_ops)
+
+    for i in range(len(e_ops)):
+        assert np.allclose(got.expect[i], ref.expect[i], **CMP), (
+            f"e_op {i} mismatch: max|diff|="
+            f"{np.max(np.abs(np.asarray(got.expect[i]) - ref.expect[i]))}"
+        )
 
 
 @pytest.mark.parametrize("dims", [[2, 2], [2, 3]], ids=["2x2", "2x3"])
