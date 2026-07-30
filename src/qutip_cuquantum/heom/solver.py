@@ -4,6 +4,7 @@ from time import time
 import numpy as np
 from qutip import Qobj, QobjEvo, liouvillian
 from qutip.solver.heom.bofin_solvers import HierarchyADOs, HierarchyADOsState
+from qutip.solver.integrator.qutip_integrator import IntegratorVern7
 from qutip import settings
 
 from qutip.solver.heom.bofin_solvers import HierarchyADOs
@@ -104,6 +105,32 @@ class CuHEOMSolver(HEOMSolver):
 
         Solver.__init__(self, rhs, options=options)  # NB: skip HEOMSolver.__init__
 
+
+    def _get_integrator(self):
+        # Only the explicit Runge-Kutta integrators drive the system purely
+        # through ``matmul_data`` while keeping the state in its own data
+        # layer, which is what lets the hierarchy stay on the GPU. The others
+        # either need the generator as a matrix, which CuHEOMRhs cannot build,
+        # or hand the state back as a dense host array. ``IntegratorVern7`` is
+        # the base of vern9 and tsit5, so it identifies the whole family.
+        # Checked before instantiating, because some integrators fail inside
+        # their own setup first and would mask this message.
+        method = self._options["method"]
+        integrator = self.avail_integrators().get(method, method)
+        if not (
+            isinstance(integrator, type)
+            and issubclass(integrator, IntegratorVern7)
+        ):
+            supported = sorted(
+                name
+                for name, cls in self.avail_integrators().items()
+                if issubclass(cls, IntegratorVern7)
+            )
+            raise ValueError(
+                f"CuHEOMSolver requires an explicit Runge-Kutta integrator, "
+                f"but method={method!r} is not one of {supported}."
+            )
+        return super()._get_integrator()
 
     def steady_state(self, use_mkl=True, mkl_max_iter_refine=100, mkl_weighted_matching=False):
         raise NotImplementedError("steady_state is not supported for CuHEOMSolver.")
