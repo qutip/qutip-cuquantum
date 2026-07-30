@@ -14,6 +14,11 @@ import cuquantum.densitymat as cudm
 
 class CuHEOMRhs(QobjEvo):
     def __init__(self, ctx, Lsys, ados):
+        if ctx.get_num_ranks() != 1:
+            raise NotImplementedError(
+                "CuHEOMRhs does not support distributed (MPI) execution."
+            )
+
         # ``QobjEvo`` keeps ``_dims``, ``shape``, ``_feedback_functions`` and
         # ``_solver_only_feedback`` in ``readonly`` C-level slots. The old
         # Cython subclass could assign them directly (a C-level write), but a
