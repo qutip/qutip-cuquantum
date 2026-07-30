@@ -96,6 +96,42 @@ def test_multi_bath_matches_cpu():
         assert np.allclose(got.expect[i], ref.expect[i], **CMP)
 
 
+@pytest.mark.parametrize("dims", [[2, 2], [2, 3]], ids=["2x2", "2x3"])
+def test_composite_system_matches_cpu(dims):
+    # A multi-mode system exercises cuDensity's tensor storage layout: the
+    # hierarchy buffer holds the F-ordered (d1, .., dn, d1, .., dn) tensor,
+    # which differs from the F-ordered (D, D) matrix as soon as n > 1.
+    d0, d1 = dims
+    a0 = qutip.destroy(d0) & qutip.qeye(d1)
+    a1 = qutip.qeye(d0) & qutip.destroy(d1)
+    H = a0.dag() * a0 + 0.7 * a1.dag() * a1 + 0.3 * (a0.dag() * a1 + a1.dag() * a0)
+    Q = a0 + a0.dag()
+    bath = DrudeLorentzBath(Q, lam=0.5, gamma=1.0, T=0.5, Nk=1, combine=True)
+    rho0 = qutip.ket2dm(qutip.basis(dims, [d0 - 1, 0]))
+    tlist = np.linspace(0, 2, 11)
+    e_ops = [a0.dag() * a0, a1.dag() * a1, Q]
+
+    ref, got = _run_pair(
+        H, bath, 2, rho0, tlist, e_ops=e_ops,
+        options={"store_ados": True, "store_states": True},
+    )
+
+    for i in range(len(e_ops)):
+        assert np.allclose(got.expect[i], ref.expect[i], **CMP), (
+            f"e_op {i} mismatch: max|diff|="
+            f"{np.max(np.abs(np.asarray(got.expect[i]) - ref.expect[i]))}"
+        )
+
+    # The reduced density matrix and every ADO must round-trip out of the
+    # tensor layout, not just the observables.
+    ref_state, got_state = ref.ado_states[-1], got.ado_states[-1]
+    assert np.allclose(got_state.rho.full(), ref_state.rho.full(), **CMP)
+    for lbl in ref_state.labels:
+        assert np.allclose(
+            got_state.extract(lbl).full(), ref_state.extract(lbl).full(), **CMP
+        ), f"ADO {lbl} mismatch"
+
+
 def test_store_ados_extract_matches_cpu():
     H = _qubit_hamiltonian()
     bath = DrudeLorentzBath(

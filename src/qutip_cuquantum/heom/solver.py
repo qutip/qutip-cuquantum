@@ -13,29 +13,50 @@ from .rhs import CuHEOMRhs
 import cupy as cp
 
 
+def _matrix_to_storage(rho, hilbert_dims):
+    """
+    Flatten a ``(D, D)`` system density matrix into cuDensity's storage order.
+
+    A ``DenseMixedState`` over ``hilbert_dims = (d1, ..., dn)`` stores the
+    F-ordered ``(d1, ..., dn, d1, ..., dn)`` tensor, which only coincides with
+    the F-ordered ``(D, D)`` matrix when there is a single mode.
+    """
+    return rho.reshape(tuple(hilbert_dims) * 2).ravel("F")
+
+
+def _storage_to_matrix(storage, hilbert_dims):
+    """Inverse of :func:`_matrix_to_storage`, returning a ``(D, D)`` array."""
+    D = int(np.prod(hilbert_dims))
+    tensor = storage.reshape(tuple(hilbert_dims) * 2, order="F")
+    return tensor.reshape(D, D)
+
+
 class CuHierarchyADOsState(HierarchyADOsState):
-    def __init__(self, ados, ado_state, sys_shape, sys_dim):
-        self.D = sys_shape
+    def __init__(self, ados, ado_state, hilbert_dims, sys_dim):
+        self.hilbert_dims = tuple(hilbert_dims)
+        self.D = int(np.prod(self.hilbert_dims))
         self.sys_dim = sys_dim
         self._ados = ados
         self._ado_state = ado_state
-        rho_arr = ado_state.base.storage[:self.D**2].reshape((self.D, self.D), order="F").get()
-        self.rho = Qobj(rho_arr, dims=sys_dim)
+        self.rho = self.extract(0)
 
     def __getattr__(self, name):
         if name == "_ados":
             # avoid infinite recursion
-            raise AttributeError(name)        
+            raise AttributeError(name)
         return getattr(self._ados, name)
-
 
     def extract(self, idx_or_label):
         if isinstance(idx_or_label, int):
             idx = idx_or_label
         else:
             idx = self._ados.idx(idx_or_label)
-        arr = self._ado_state.base.storage[idx*self.D**2:(idx+1)*self.D**2].reshape((self.D, self.D), order="F").get()
-        return Qobj(arr, dims=self.sys_dim)
+        D2 = self.D ** 2
+        storage = self._ado_state.base.storage[idx * D2:(idx + 1) * D2].get()
+        return Qobj(
+            _storage_to_matrix(storage, self.hilbert_dims), dims=self.sys_dim
+        )
+
 
 class CuHEOMSolver(HEOMSolver):
     solver_options = {
@@ -62,6 +83,7 @@ class CuHEOMSolver(HEOMSolver):
         
         self._sys_shape = int(np.sqrt(self.L_sys.shape[0]))
         self._sup_shape = self.L_sys.shape[0]
+        self._hilbert_dims = tuple(self.L_sys.dims[0][0])
 
         self.ados = HierarchyADOs(
             self._combine_bath_exponents(bath), max_depth,
@@ -105,7 +127,10 @@ class CuHEOMSolver(HEOMSolver):
                     f" but the system dims are {self._sys_dims}"
                 )
             arr = cp.zeros([D2 * self._n_ados], dtype=cp.complex128)
-            arr[:D2] = cp.asarray(rho0.full().ravel('F'), dtype=cp.complex128)
+            arr[:D2] = cp.asarray(
+                _matrix_to_storage(rho0.full(), self._hilbert_dims),
+                dtype=cp.complex128,
+            )
             return CuState(arr)
         else:
             if(isinstance(state, CuHierarchyADOsState)):
@@ -122,5 +147,7 @@ class CuHEOMSolver(HEOMSolver):
     def _restore_state(self, state, *, copy=True):
         if(copy):
             state = state.copy()
-        return CuHierarchyADOsState(self.ados, state, self._sys_shape, self._sys_dims)
+        return CuHierarchyADOsState(
+            self.ados, state, self._hilbert_dims, self._sys_dims
+        )
 
