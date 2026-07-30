@@ -80,8 +80,7 @@ class CuHEOMSolver(HEOMSolver):
 
         H = QobjEvo(H.to(CuOperator))
         self.L_sys = liouvillian(H) if H.type == "oper" else H
-    
-        
+
         self._sys_shape = int(np.sqrt(self.L_sys.shape[0]))
         self._sup_shape = self.L_sys.shape[0]
         self._hilbert_dims = tuple(self.L_sys.dims[0][0])
@@ -141,13 +140,13 @@ class CuHEOMSolver(HEOMSolver):
             raise RuntimeError(
                 "CuHEOMSolver requires a cuQuantum WorkStream. "
                 "Call qutip_cuquantum.set_as_default(ctx) first."
-            )        
+            )
         return CuHEOMRhs(ctx, self.L_sys, self.ados)
 
     def _prepare_state(self, state):
         if(isinstance(state, Qobj)):
             rho0 = state
-            D2 = self._sys_shape ** 2      
+            D2 = self._sys_shape ** 2
             if rho0._dims != self._sys_dims :
                 raise ValueError(
                     f"Initial state rho has dims {rho0.dims}"

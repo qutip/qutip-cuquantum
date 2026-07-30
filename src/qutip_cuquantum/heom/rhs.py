@@ -41,11 +41,11 @@ class CuHEOMRhs(QobjEvo):
         D2 = self._sys_shape ** 2
         # The bath couplings/weights are always frozen at construction, so the
         # RHS is constant iff the system Liouvillian is.
-        self._isconstant = Lsys.isconstant        
+        self._isconstant = Lsys.isconstant
         # ------------------------------------------------------------------
         # 2. Bath / hierarchy
         # ------------------------------------------------------------------
-        
+
         for exp in ados.exponents:
             if exp.fermionic:
                 raise NotImplementedError(
@@ -54,7 +54,7 @@ class CuHEOMRhs(QobjEvo):
 
         if  ados.exponents[0].Q.shape[0] != self._sys_shape:
             raise ValueError("Bath coupling operator dimension does not match Hamiltonian dimension.")
-        
+
         n_exponents = len(ados.exponents)
         n_ados = len(ados.labels)
         self._n_ados = n_ados
