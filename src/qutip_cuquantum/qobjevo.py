@@ -49,9 +49,8 @@ class CuQobjEvo(QobjEvo):
                 oper = wrap_funcelement(*part, dual, self.hilbert_space_dims)
                 self.operator.append(oper)
 
-    def matmul_data(self, t, state, out=None, scale=1.):
-        if scale != 1.:
-            raise NotImplementedError()
+
+    def matmul_data(self, t, state, out=None, scale=1.0):
         if not isinstance(state, CuState):
             state = CuState(state, hilbert_dims=self.hilbert_space_dims)
         if not self.action_ready:
@@ -62,6 +61,8 @@ class CuQobjEvo(QobjEvo):
             self.action_ready = True
         if out is None:
             out = zeros_like_cuState(state)
+        if scale != 1.0:
+            state = state * scale
         self.operator.compute_action(
             t,
             None,
