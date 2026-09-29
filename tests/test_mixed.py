@@ -11,8 +11,16 @@ from qutip_cuquantum.operator import CuOperator
 from qutip_cuquantum.state import CuState
 from qutip_cuquantum.mixed_dispatch import matmul_cuoperator_custate_custate, matmul_custate_cuoperator_custate
 import qutip_cuquantum
-cudm_ctx = cudense.WorkStream()
-qutip_cuquantum.set_as_default(cudm_ctx)
+#cudm_ctx = cudense.WorkStream()
+#qutip_cuquantum.set_as_default(cudm_ctx)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def global_gpu_backend():
+    cudm_ctx = cudense.WorkStream()
+    with qutip_cuquantum.CuQuantumBackend(cudm_ctx):
+        yield
+
 
 test_tools._ALL_CASES = {
     CuOperator: cases_cuoperator,
@@ -38,7 +46,7 @@ _imcompatible_op_state = [
     (pytest.param((2, 3), id="double"), pytest.param((3, 2, StateType.DM), id="inverted")),
     (pytest.param((2, -4), id="double_weak"), pytest.param((4, 2, StateType.DM), id="double_weak")),
     (pytest.param((2, 3, -4), id="complex"), pytest.param((6, 2, 2, StateType.DM), id="complex")),
-    (pytest.param((2,), id="dm"), pytest.param((2, StateType.BRA), id="bra")),    
+    (pytest.param((2,), id="dm"), pytest.param((2, StateType.BRA), id="bra")),
 ]
 
 
@@ -76,4 +84,4 @@ def test_mixed_dispatch_dual_op_dm():
     state = random_custate((2, 3, StateType.DM))
     actual = matmul_cuoperator_custate_custate(op, state).to_array().ravel('F')
     expected = np.matmul(op.to_array(), state.to_array().ravel('F'))
-    np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-7)    
+    np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-7)

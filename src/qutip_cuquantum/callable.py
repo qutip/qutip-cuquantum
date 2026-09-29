@@ -17,7 +17,7 @@ def _hilbert_from_dims(dims):
 
 
 def wrap_coeff(coeff):
-    return CPUCallback(lambda t, _: coeff(t))
+    return CPUCallback(lambda t, cu_args: coeff(t, cu_args=cu_args))
 
 
 def _wrap_callable(func):
@@ -25,7 +25,7 @@ def _wrap_callable(func):
     shape = sample._dims._get_tensor_shape()
     perm = sample._dims._get_tensor_perm()
     num_mode = len(shape) // 2
-    
+
     if sample.dtype is Dia and num_mode == 1:
         dia_matrix = sample.as_scipy()
         offsets = list(dia_matrix.offsets)
@@ -47,7 +47,7 @@ def _wrap_callable(func):
     else:
         if sample.dtype is Dia:
             print("Callable QobjEvo converted to dense!")
-        
+
         def wrapped(t, _=None):
             # TODO: Should we make this a class for pickling?
             arr = func(t).full()
@@ -95,7 +95,7 @@ def wrap_funcelement(element, args, dual, hilbert_dims, anti=False):
         as_qobj = Qobj(left @ right, [dims_left[0], dims_right[1]])
         for transform in element._transform:
             as_qobj = transform(as_qobj)
-        
+
         if as_qobj.dtype is not CuOperator:
             oper, num_mode = _wrap_callable(element.qobj)
             coeff = make_CPUcall( coefficient(element.coeff).conj() ) if anti else make_CPUcall(element.coeff)
