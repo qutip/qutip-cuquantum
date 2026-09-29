@@ -807,6 +807,8 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         "dt": 0.0001,
         "tol": 1e-7,
         "batch": 1,
+        "beta": 0.5,
+        "dW2 terms": True,
     }
 
     def __init__(self, rhs, options):
@@ -827,6 +829,7 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         dw = np.zeros((N, N, batch), dtype=float)
         self.dy = dy
         self.dw = dw
+        self._beta = self.options["beta"]
 
         if H.issuper:
             raise TypeError("The rouchon stochastic integration method can't"
@@ -863,21 +866,24 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
                 else:
                     raise NotImplementedError
 
-            for j in range(i+1):
-                coeff = BatchCoefficient(
-                    _w, args={"_i": i, "_j": j, "cu_args": None}
-                )
-                oper = sc_ops[j] @ op
-                for part in oper.to_list():
-                    if isinstance(part, qutip.Qobj):
-                        ML += qutip.QobjEvo([part, coeff])
-                        MR += qutip.QobjEvo([part.dag(), coeff])
-                    elif isinstance(part, list):
-                        qobj, p_coeff = part
-                        ML += qutip.QobjEvo([qobj, coeff * p_coeff])
-                        MR += qutip.QobjEvo([qobj.dag(), coeff * p_coeff.conj()])
-                    else:
-                        raise NotImplementedError
+            if self.options["dW2 terms"]:
+                for j in range(i+1):
+                    coeff = BatchCoefficient(
+                        _w, args={"_i": i, "_j": j, "cu_args": None}
+                    )
+                    oper = sc_ops[j] @ op
+                    for part in oper.to_list():
+                        if isinstance(part, qutip.Qobj):
+                            ML += qutip.QobjEvo([part, coeff])
+                            MR += qutip.QobjEvo([part.dag(), coeff])
+                        elif isinstance(part, list):
+                            qobj, p_coeff = part
+                            ML += qutip.QobjEvo([qobj, coeff * p_coeff])
+                            MR += qutip.QobjEvo(
+                                [qobj.dag(), coeff * p_coeff.conj()]
+                            )
+                        else:
+                            raise NotImplementedError
 
         self.C = 0
         for op in c_ops:
@@ -930,7 +936,6 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         else:
             state0 = CuState(state0, self.M_l.hilbert_space_dims)
             self.state = batch_copy(state0, self.batch)
-        print(self.state.shape, self.state.base.view().shape)
 
         self._tmp = _data.zeros_like(self.state)
         self._out = _data.zeros_like(self.state)
@@ -962,8 +967,9 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         return self.t, self.state, np.sum(dW, axis=0)
 
     def _step(self, t, state, dt, dW):
+        t_oper = t + self._beta * dt
         dy = np.array([
-            op.expect_data(t, state).real + dw
+            op.expect_data(t_oper, state).real + dw
             for op, dw in zip(self.cpcds, dW)
         ])
 
@@ -981,14 +987,14 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
         self._out = _data.imul(self._out, 0)
 
         if self._issuper:
-            self._tmp = self.M_l.matmul_data(t, state, self._tmp)
-            self._out = self.M_r.matmul_data(t, self._tmp, self._out)
+            self._tmp = self.M_l.matmul_data(t_oper, state, self._tmp)
+            self._out = self.M_r.matmul_data(t_oper, self._tmp, self._out)
             if self.C:
-                self._out = self.C.matmul_data(t, state, self._out)
+                self._out = self.C.matmul_data(t_oper, state, self._out)
 
             self._out = _data.imul(self._out, 1/_data.trace_oper_ket(self._out))
         else:
-            self._out = self.M_l.matmul_data(t, state, self._out)
+            self._out = self.M_l.matmul_data(t_oper, state, self._out)
             self._out = _data.imul(self._out, 1/_data.norm.l2(self._out))
         return self._out
 
@@ -1002,6 +1008,17 @@ class RouchonSODE(Explicit_Simple_Integrator_Batched):
 
         tol : float, default: 1e-7
             Relative tolerance.
+
+        batch: int, default: 1
+            Number of state the evolve at once.
+
+        beta: float, default: 0.5
+            The time dependent operator at each steps are evaluated at
+            "t0 + beta * dt".
+
+        "dW2 terms": bool, default: True
+            Whether to include diffusion terms of order dW**2.
+            Slower but better convergence.
         """
         return self._options
 
