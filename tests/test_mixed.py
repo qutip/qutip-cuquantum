@@ -1,5 +1,5 @@
 import qutip.core.data as _data
-import qutip.tests.core.data.test_mathematics as test_tools
+from qutip.testing import mixin
 import pytest
 import numpy as np
 import cupy as cp
@@ -42,7 +42,7 @@ _imcompatible_op_state = [
 ]
 
 
-class TestOpStateMatmul(test_tools.TestMatmul):
+class TestOpStateMatmul(mixin.TestMatmul):
     specialisations = [
         pytest.param(matmul_cuoperator_custate_custate, CuOperator, CuState, CuState),
     ]
@@ -62,7 +62,7 @@ _imcompatible_state_op = [
     (pytest.param((2, StateType.KET), id="single"), pytest.param( (2,), id="single")),
 ]
 
-class TestStateOpMatmul(test_tools.TestMatmul):
+class TestStateOpMatmul(mixin.TestMatmul):
     specialisations = [
         pytest.param(matmul_custate_cuoperator_custate, CuState, CuOperator, CuState),
     ]

@@ -9,7 +9,7 @@ from qutip_cuquantum.operator import CuOperator, isequal_CuOperator
 from qutip_cuquantum.state import zeros_like_cuState, CuState
 
 import qutip.core.data as _data
-import qutip.tests.core.data.test_mathematics as test_tools
+from qutip.testing import mixin
 from utils import random_CuOperator, cases_cuoperator
 
 test_tools._ALL_CASES = {
@@ -137,7 +137,7 @@ def test_equal(left, right, expected):
     assert (isequal_CuOperator(left.data, right.data)) is expected
 
 
-class TestAdd(test_tools.TestAdd):
+class TestAdd(mixin.TestAdd):
     specialisations = [
         pytest.param(lambda x, y, s=1.: x + y * s, CuOperator, CuOperator, CuOperator),
     ]
@@ -146,7 +146,7 @@ class TestAdd(test_tools.TestAdd):
     bad_shapes = _imcompatible_hilbert
 
 
-class TestSub(test_tools.TestSub):
+class TestSub(mixin.TestSub):
     specialisations = [
         pytest.param(lambda x, y: x - y, CuOperator, CuOperator, CuOperator),
     ]
@@ -155,7 +155,7 @@ class TestSub(test_tools.TestSub):
     bad_shapes = _imcompatible_hilbert
 
 
-class TestMatmul(test_tools.TestMatmul):
+class TestMatmul(mixin.TestMatmul):
     specialisations = [
         pytest.param(
             lambda x, y, scale=1.: x @ y * scale,
@@ -166,7 +166,7 @@ class TestMatmul(test_tools.TestMatmul):
     bad_shapes = _imcompatible_hilbert
 
 
-class TestMul(test_tools.TestMul):
+class TestMul(mixin.TestMul):
     specialisations = [
         pytest.param(lambda op, scale: op * scale, CuOperator, CuOperator),
     ]
@@ -175,7 +175,7 @@ class TestMul(test_tools.TestMul):
     bad_shapes = []
 
 
-class TestNeg(test_tools.TestNeg):
+class TestNeg(mixin.TestNeg):
     specialisations = [
         pytest.param(lambda op: -op, CuOperator, CuOperator),
     ]
@@ -184,7 +184,7 @@ class TestNeg(test_tools.TestNeg):
     bad_shapes = []
 
 
-class TestAdjoint(test_tools.TestAdjoint):
+class TestAdjoint(mixin.TestAdjoint):
     specialisations = [
         pytest.param(lambda op: op.adjoint(), CuOperator, CuOperator),
     ]
@@ -193,7 +193,7 @@ class TestAdjoint(test_tools.TestAdjoint):
     bad_shapes = []
 
 
-class TestConj(test_tools.TestConj):
+class TestConj(mixin.TestConj):
     specialisations = [
         pytest.param(lambda op: op.conj(), CuOperator, CuOperator),
     ]
@@ -202,7 +202,7 @@ class TestConj(test_tools.TestConj):
     bad_shapes = []
 
 
-class TestTranspose(test_tools.TestTranspose):
+class TestTranspose(mixin.TestTranspose):
     specialisations = [
         pytest.param(lambda op: op.transpose(), CuOperator, CuOperator),
     ]
@@ -211,7 +211,7 @@ class TestTranspose(test_tools.TestTranspose):
     bad_shapes = []
 
 
-class TestKron(test_tools.TestKron):
+class TestKron(mixin.TestKron):
     specialisations = [
         pytest.param(_data.kron, CuOperator, CuOperator, CuOperator),
     ]
