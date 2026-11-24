@@ -12,11 +12,11 @@ import qutip.core.data as _data
 from qutip.testing import mixin
 from utils import random_CuOperator, cases_cuoperator
 
-test_tools._ALL_CASES = {
+mixin.CORRECT_CASES = {
     CuOperator: cases_cuoperator,
 }
 
-test_tools._RANDOM = {
+mixin.WRONG_CASES = {
     CuOperator: lambda hilbert: [lambda: random_CuOperator(hilbert, [2], 0)],
 }
 

@@ -27,11 +27,11 @@ qutip.settings.cuDensity["ctx"] = cudense.WorkStream()
 
 
 
-test_tools._ALL_CASES = {
+mixin.CORRECT_CASES = {
     CuState: lambda shape: [lambda: random_custate(shape),],
 }
 
-test_tools._RANDOM = {
+mixin.WRONG_CASES = {
     CuState: lambda shape: [lambda: random_custate(shape),],
 }
 

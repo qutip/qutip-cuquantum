@@ -14,12 +14,12 @@ import qutip_cuquantum
 cudm_ctx = cudense.WorkStream()
 qutip_cuquantum.set_as_default(cudm_ctx)
 
-test_tools._ALL_CASES = {
+mixin.CORRECT_CASES = {
     CuOperator: cases_cuoperator,
     CuState: lambda shape: [lambda: random_custate(shape),],
 }
 
-test_tools._RANDOM = {
+mixin.WRONG_CASES = {
     CuOperator: lambda hilbert: [lambda: random_CuOperator(hilbert, [2], 0)],
     CuState: lambda shape: [lambda: random_custate(shape),],
 }
