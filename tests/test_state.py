@@ -19,8 +19,7 @@ from qutip_cuquantum.state import (
 )
 
 import qutip.core.data as _data
-from qutip.testing import mixin
-import qutip.tests.core.data.test_norm as test_norm
+from qutip.testing import mixin, stat_mixin
 
 
 
@@ -188,7 +187,7 @@ class TestMul(mixin.TestMul):
     bad_shapes = []
 
 
-class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
+class TestFrobeniusNorm(stat_mixin.TestFrobeniusNorm):
     specialisations = [
         pytest.param(frobenius_cuState, CuState, float),
     ]
@@ -197,7 +196,7 @@ class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
     bad_shapes = []
 
 
-class TestL2Norm(test_norm.TestL2Norm):
+class TestL2Norm(stat_mixin.TestL2Norm):
     specialisations = [
         pytest.param(l2_cuState, CuState, float),
     ]
