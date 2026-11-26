@@ -28,11 +28,11 @@ qutip.settings.cuDensity["ctx"] = cudense.WorkStream()
 
 
 mixin.CORRECT_CASES = {
-    CuState: lambda shape: [lambda: random_custate(shape),],
+    CuState: lambda shape: [lambda random_generator: random_custate(shape),],
 }
 
 mixin.WRONG_CASES = {
-    CuState: lambda shape: [lambda: random_custate(shape),],
+    CuState: lambda shape: [lambda random_generator: random_custate(shape),],
 }
 
 _unary_pure = [
