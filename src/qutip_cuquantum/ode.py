@@ -21,7 +21,6 @@ class Result(qt_Result):
 
 
 class CuIntegratorVern7(qode.IntegratorVern7):
-    supports_blackbox: bool = False  # No feedback support
     rhs_format = "solver"
     method = "vern7"
 
@@ -38,7 +37,6 @@ class CuIntegratorVern7(qode.IntegratorVern7):
 
 
 class CuIntegratorVern9(qode.IntegratorVern9):
-    supports_blackbox: bool = False  # No feedback support
     rhs_format = "solver"
     method = "vern9"
 
@@ -55,7 +53,6 @@ class CuIntegratorVern9(qode.IntegratorVern9):
 
 
 class CuIntegratorTsit5(qode.IntegratorTsit5):
-    supports_blackbox: bool = False  # No feedback support
     rhs_format = "solver"
     method = "tsit5"
 
