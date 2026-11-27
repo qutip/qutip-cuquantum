@@ -5,9 +5,7 @@ import random
 import pytest
 import qutip
 import qutip.core.data as _data
-from qutip.tests.core.data.conftest import (
-    random_csr, random_dense, random_diag
-)
+from qutip.testing.random_data import random_csr, random_dense, random_diag
 from qutip_cuquantum.state import CuState
 from qutip_cuquantum.operator import CuOperator, ProdTerm, Term
 from qutip_cuquantum.utils import Transform
@@ -154,7 +152,7 @@ def cases_cuoperator(hilbert):
         Test cases with different operator structures.
     """
     def factory(N_elementary, seed):
-        return lambda: random_CuOperator(hilbert, N_elementary, seed)
+        return lambda random_generator: random_CuOperator(hilbert, N_elementary, seed)
 
     cases = []
 

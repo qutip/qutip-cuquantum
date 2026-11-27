@@ -275,8 +275,8 @@ def inner_cuState(left, right, scalar_is_ket=False):
 
 
 @_data.mul.register(CuState)
-def mul_cuState(mat, val):
-    return mat * val
+def mul_cuState(mat, value):
+    return mat * value
 
 
 @_data.add.register(CuState)
@@ -292,8 +292,8 @@ def add_cuState(left, right, scale=1.):
 
 
 @_data.imul.register(CuState)
-def imul_cuState(mat, val):
-    mat.base.inplace_scale(val)
+def imul_cuState(mat, value):
+    mat.base.inplace_scale(value)
     return mat
 
 

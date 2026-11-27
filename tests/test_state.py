@@ -19,8 +19,7 @@ from qutip_cuquantum.state import (
 )
 
 import qutip.core.data as _data
-import qutip.tests.core.data.test_mathematics as test_tools
-import qutip.tests.core.data.test_norm as test_norm
+from qutip.testing import mixin, stat_mixin
 
 
 
@@ -28,12 +27,12 @@ qutip.settings.cuDensity["ctx"] = cudense.WorkStream()
 
 
 
-test_tools._ALL_CASES = {
-    CuState: lambda shape: [lambda: random_custate(shape),],
+mixin.CORRECT_CASES = {
+    CuState: lambda shape: [lambda random_generator: random_custate(shape),],
 }
 
-test_tools._RANDOM = {
-    CuState: lambda shape: [lambda: random_custate(shape),],
+mixin.WRONG_CASES = {
+    CuState: lambda shape: [lambda random_generator: random_custate(shape),],
 }
 
 _unary_pure = [
@@ -148,7 +147,7 @@ _kron_hilbert = [
 ]
 
 
-class TestTrace(test_tools.TestTrace):
+class TestTrace(mixin.TestTrace):
     specialisations = [
         pytest.param(trace_cuState, CuState, complex),
         # OperKet are not actually stacked in the tensor rep
@@ -159,7 +158,7 @@ class TestTrace(test_tools.TestTrace):
     bad_shapes = []
 
 
-class TestAdd(test_tools.TestAdd):
+class TestAdd(mixin.TestAdd):
     specialisations = [
         pytest.param(add_cuState, CuState, CuState, CuState),
         pytest.param(iadd_cuState, CuState, CuState, CuState),
@@ -169,7 +168,7 @@ class TestAdd(test_tools.TestAdd):
     bad_shapes = _imcompatible_hilbert
 
 
-class TestWRMN_error(test_tools.TestWRMN_error):
+class TestWRMN_error(mixin.TestWRMN_error):
     specialisations = [
         pytest.param(wrmn_error_cuState, CuState, CuState, float),
     ]
@@ -178,7 +177,7 @@ class TestWRMN_error(test_tools.TestWRMN_error):
     bad_shapes = _imcompatible_hilbert
 
 
-class TestMul(test_tools.TestMul):
+class TestMul(mixin.TestMul):
     specialisations = [
         pytest.param(mul_cuState, CuState, CuState),
         pytest.param(imul_cuState, CuState, CuState),
@@ -188,7 +187,7 @@ class TestMul(test_tools.TestMul):
     bad_shapes = []
 
 
-class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
+class TestFrobeniusNorm(stat_mixin.TestFrobeniusNorm):
     specialisations = [
         pytest.param(frobenius_cuState, CuState, float),
     ]
@@ -197,7 +196,7 @@ class TestFrobeniusNorm(test_norm.TestFrobeniusNorm):
     bad_shapes = []
 
 
-class TestL2Norm(test_norm.TestL2Norm):
+class TestL2Norm(stat_mixin.TestL2Norm):
     specialisations = [
         pytest.param(l2_cuState, CuState, float),
     ]
@@ -206,7 +205,7 @@ class TestL2Norm(test_norm.TestL2Norm):
     bad_shapes = _unary_mixed
 
 
-class TestInner(test_tools.TestInner):
+class TestInner(mixin.TestInner):
     specialisations = [
         pytest.param(inner_cuState, CuState, CuState, complex),
     ]
@@ -215,7 +214,7 @@ class TestInner(test_tools.TestInner):
     bad_shapes = []
 
 
-class TestTranspose(test_tools.TestTranspose):
+class TestTranspose(mixin.TestTranspose):
     specialisations = [
         pytest.param(transpose_cuState, CuState, CuState),
     ]
@@ -224,7 +223,7 @@ class TestTranspose(test_tools.TestTranspose):
     bad_shapes = []
 
 
-class TestAdjoint(test_tools.TestAdjoint):
+class TestAdjoint(mixin.TestAdjoint):
     specialisations = [
         pytest.param(adjoint_cuState, CuState, CuState),
     ]
@@ -233,7 +232,7 @@ class TestAdjoint(test_tools.TestAdjoint):
     bad_shapes = []
 
 
-class TestMatmul(test_tools.TestMatmul):
+class TestMatmul(mixin.TestMatmul):
     specialisations = [
         pytest.param(matmul_cuState, CuState, CuState, CuState),
     ]
@@ -242,7 +241,7 @@ class TestMatmul(test_tools.TestMatmul):
     bad_shapes = _matmul_incompatible
 
 
-class TestProject(test_tools.TestProject):
+class TestProject(mixin.TestProject):
     specialisations = [
         pytest.param(project_CuState, CuState, CuState),
     ]

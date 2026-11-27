@@ -1,5 +1,5 @@
 import qutip.core.data as _data
-import qutip.tests.core.data.test_mathematics as test_tools
+from qutip.testing import mixin
 import pytest
 import numpy as np
 import cupy as cp
@@ -14,14 +14,14 @@ import qutip_cuquantum
 cudm_ctx = cudense.WorkStream()
 qutip_cuquantum.set_as_default(cudm_ctx)
 
-test_tools._ALL_CASES = {
+mixin.CORRECT_CASES = {
     CuOperator: cases_cuoperator,
-    CuState: lambda shape: [lambda: random_custate(shape),],
+    CuState: lambda shape: [lambda random_generator: random_custate(shape),],
 }
 
-test_tools._RANDOM = {
-    CuOperator: lambda hilbert: [lambda: random_CuOperator(hilbert, [2], 0)],
-    CuState: lambda shape: [lambda: random_custate(shape),],
+mixin.WRONG_CASES = {
+    CuOperator: lambda hilbert: [lambda random_generator: random_CuOperator(hilbert, [2], 0)],
+    CuState: lambda shape: [lambda random_generator: random_custate(shape),],
 }
 
 _compatible_op_state = [
@@ -42,7 +42,7 @@ _imcompatible_op_state = [
 ]
 
 
-class TestOpStateMatmul(test_tools.TestMatmul):
+class TestOpStateMatmul(mixin.TestMatmul):
     specialisations = [
         pytest.param(matmul_cuoperator_custate_custate, CuOperator, CuState, CuState),
     ]
@@ -62,7 +62,7 @@ _imcompatible_state_op = [
     (pytest.param((2, StateType.KET), id="single"), pytest.param( (2,), id="single")),
 ]
 
-class TestStateOpMatmul(test_tools.TestMatmul):
+class TestStateOpMatmul(mixin.TestMatmul):
     specialisations = [
         pytest.param(matmul_custate_cuoperator_custate, CuState, CuOperator, CuState),
     ]
