@@ -139,7 +139,7 @@ def test_equal(left, right, expected):
 
 class TestAdd(mixin.TestAdd):
     specialisations = [
-        pytest.param(lambda x, y, s=1.: x + y * s, CuOperator, CuOperator, CuOperator),
+        pytest.param(lambda x, y, scale=1.: x + y * scale, CuOperator, CuOperator, CuOperator),
     ]
 
     shapes = _compatible_hilbert
