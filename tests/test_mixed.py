@@ -16,12 +16,12 @@ qutip_cuquantum.set_as_default(cudm_ctx)
 
 mixin.CORRECT_CASES = {
     CuOperator: cases_cuoperator,
-    CuState: lambda shape: [lambda: random_custate(shape),],
+    CuState: lambda shape: [lambda random_generator: random_custate(shape),],
 }
 
 mixin.WRONG_CASES = {
-    CuOperator: lambda hilbert: [lambda: random_CuOperator(hilbert, [2], 0)],
-    CuState: lambda shape: [lambda: random_custate(shape),],
+    CuOperator: lambda hilbert: [lambda random_generator: random_CuOperator(hilbert, [2], 0)],
+    CuState: lambda shape: [lambda random_generator: random_custate(shape),],
 }
 
 _compatible_op_state = [
