@@ -107,16 +107,16 @@ def test_permute():
     assert np.all(rho2.full() == qutip.tensor(C, A, B).full())
 
 
-_qeye = lambda N: lambda : qutip.qeye(N)
-_destroy = lambda N: lambda : qutip.destroy(N)
+_qeye = lambda N: lambda : qutip.qeye(N, dtype=CuOperator)
+_destroy = lambda N: lambda : qutip.destroy(N, dtype=CuOperator)
 
 
 def _cplx(N):
     def func():
         return (
-            (qutip.create(N) & qutip.qeye(2))
-            + ( qutip.qeye(N) & qutip.sigmax() )
-            + ( (qutip.destroy(N) @ qutip.create(N)) & qutip.sigmay() )
+            (qutip.create(N, dtype=CuOperator) & qutip.qeye(2, dtype=CuOperator))
+            + ( qutip.qeye(N, dtype=CuOperator) & qutip.sigmax(dtype=CuOperator) )
+            + ( (qutip.destroy(N, dtype=CuOperator) @ qutip.create(N, dtype=CuOperator)) & qutip.sigmay(dtype=CuOperator) )
         )
 
     return func
