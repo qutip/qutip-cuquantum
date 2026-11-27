@@ -88,7 +88,7 @@ SESolver.add_integrator(CuIntegratorVern7, "CuVern7")
 
 MCSolver.add_integrator(CuIntegratorVern9, "CuVern9")
 MESolver.add_integrator(CuIntegratorVern9, "CuVern9")
-SESolver.add_integrator(CuIntegratorVern7, "CuVern9")
+SESolver.add_integrator(CuIntegratorVern9, "CuVern9")
 
 MCSolver.add_integrator(CuIntegratorTsit5, "CuTsit5")
 MESolver.add_integrator(CuIntegratorTsit5, "CuTsit5")
