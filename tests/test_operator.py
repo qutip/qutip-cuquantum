@@ -168,7 +168,7 @@ class TestMatmul(mixin.TestMatmul):
 
 class TestMul(mixin.TestMul):
     specialisations = [
-        pytest.param(lambda op, scale: op * scale, CuOperator, CuOperator),
+        pytest.param(lambda op, value: op * value, CuOperator, CuOperator),
     ]
 
     shapes = _unary_hilbert
