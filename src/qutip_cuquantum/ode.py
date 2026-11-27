@@ -22,11 +22,13 @@ class Result(qt_Result):
 
 class CuIntegratorVern7(qode.IntegratorVern7):
     supports_blackbox: bool = False  # No feedback support
+    rhs_format = "solver"
     method = "vern7"
 
-    def __init__(self, system, options):
-        self.system = CuQobjEvo(system)
-        super().__init__(self.system, options)
+    def __init__(self, solver, options):
+        rhs = solver.rhs() if isinstance(solver, MCSolver) else solver.rhs
+        self.system = CuQobjEvo(rhs)
+        super().__init__(self.system.matmul_data, options)
         self.name = f"vern7 with cuDensity"
 
     def set_state(self, t, state):
@@ -37,11 +39,13 @@ class CuIntegratorVern7(qode.IntegratorVern7):
 
 class CuIntegratorVern9(qode.IntegratorVern9):
     supports_blackbox: bool = False  # No feedback support
+    rhs_format = "solver"
     method = "vern9"
 
-    def __init__(self, system, options):
-        self.system = CuQobjEvo(system)
-        super().__init__(self.system, options)
+    def __init__(self, solver, options):
+        rhs = solver.rhs() if isinstance(solver, MCSolver) else solver.rhs
+        self.system = CuQobjEvo(rhs)
+        super().__init__(self.system.matmul_data, options)
         self.name = f"vern9 with cuDensity"
 
     def set_state(self, t, state):
@@ -52,11 +56,13 @@ class CuIntegratorVern9(qode.IntegratorVern9):
 
 class CuIntegratorTsit5(qode.IntegratorTsit5):
     supports_blackbox: bool = False  # No feedback support
+    rhs_format = "solver"
     method = "tsit5"
 
-    def __init__(self, system, options):
-        self.system = CuQobjEvo(system)
-        super().__init__(self.system, options)
+    def __init__(self, solver, options):
+        rhs = solver.rhs() if isinstance(solver, MCSolver) else solver.rhs
+        self.system = CuQobjEvo(rhs)
+        super().__init__(self.system.matmul_data, options)
         self.name = f"tsit5 with cuDensity"
 
     def set_state(self, t, state):
