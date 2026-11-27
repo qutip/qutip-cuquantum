@@ -17,7 +17,7 @@ mixin.CORRECT_CASES = {
 }
 
 mixin.WRONG_CASES = {
-    CuOperator: lambda hilbert: [lambda: random_CuOperator(hilbert, [2], 0)],
+    CuOperator: lambda hilbert: [lambda random_generator: random_CuOperator(hilbert, [2], 0)],
 }
 
 _unary_hilbert = [

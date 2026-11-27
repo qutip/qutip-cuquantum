@@ -152,7 +152,7 @@ def cases_cuoperator(hilbert):
         Test cases with different operator structures.
     """
     def factory(N_elementary, seed):
-        return lambda: random_CuOperator(hilbert, N_elementary, seed)
+        return lambda random_generator: random_CuOperator(hilbert, N_elementary, seed)
 
     cases = []
 
